@@ -2,12 +2,8 @@
 // Complexity: Medium (150 pts)
 // Status: Enhanced with retry mechanisms and error handling
 
-import { Keypair, SorobanRpc, Contract } from 'stellar-sdk'
 import { analytics, trackUserAction } from './analytics'
 import { showNotification } from '../utils/notifications'
-
-const RPC_URL = import.meta.env.VITE_SOROBAN_RPC_URL
-const CONTRACT_ID = import.meta.env.VITE_SOROBAN_CONTRACT_ID
 
 // Retry configuration
 const MAX_RETRIES = 3
@@ -253,7 +249,7 @@ export const initializeSoroban = (): SorobanService => {
             'getGroupStatus'
           )
         } catch (error) {
-          const { message, severity } = classifyError(error)
+          const { severity } = classifyError(error)
           analytics.trackError(error as Error, { operation: 'getGroupStatus', groupId }, severity)
           // Don't show notification for read operations
           throw error
@@ -272,7 +268,7 @@ export const initializeSoroban = (): SorobanService => {
             'getGroupMembers'
           )
         } catch (error) {
-          const { message, severity } = classifyError(error)
+          const { severity } = classifyError(error)
           analytics.trackError(error as Error, { operation: 'getGroupMembers', groupId }, severity)
           // Don't show notification for read operations
           throw error

@@ -2,21 +2,20 @@
 // This component provides a reusable wallet connection interface
 
 import React from 'react'
-import { WalletConnect } from './WalletConnect';
-
+import { WalletConnect } from './WalletConnect'
 
 export const WalletConnector: React.FC = () => {
   const handleConnect = (address: string) => {
-    console.log('Wallet connected:', address);
-  };
+    console.log('Wallet connected:', address)
+  }
 
   const handleDisconnect = () => {
-    console.log('Wallet disconnected');
-  };
+    console.log('Wallet disconnected')
+  }
 
   const handleError = (error: string) => {
-    console.error('Wallet connection error:', error);
-  };
+    console.error('Wallet connection error:', error)
+  }
 
   return (
     <div className="p-4">
@@ -25,8 +24,8 @@ export const WalletConnector: React.FC = () => {
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
         onError={handleError}
-        showNetworkSelector={true}
+        showNetworkSelector
       />
     </div>
-  );
-};
+  )
+}

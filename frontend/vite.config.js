@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -6,8 +7,8 @@ export default defineConfig({
     plugins: [react()],
     resolve: {
         alias: {
-            '@': path.resolve(__dirname, './src'),
-        },
+            '@': path.resolve(__dirname, './src')
+        }
     },
     test: {
         environment: 'jsdom',
@@ -16,11 +17,11 @@ export default defineConfig({
     },
     server: {
         port: 5173,
-        open: true,
+        open: true
     },
     build: {
         outDir: 'dist',
         sourcemap: false,
-        minify: 'terser',
-    },
+        minify: 'terser'
+    }
 });

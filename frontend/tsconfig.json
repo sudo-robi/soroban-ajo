@@ -27,5 +27,13 @@
     }
   },
   "include": ["src"],
+  "exclude": [
+    "src/stories/**/*",
+    "src/**/*.stories.ts",
+    "src/**/*.stories.tsx",
+    "src/tests/**/*",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
