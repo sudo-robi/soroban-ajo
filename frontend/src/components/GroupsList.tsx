@@ -4,6 +4,7 @@
 
 import React from 'react'
 import { GroupCard } from './GroupCard'
+import { EmptyGroupState } from './EmptyGroupState'
 
 interface GroupSummary {
   id: string
@@ -18,9 +19,16 @@ interface GroupSummary {
 interface GroupsListProps {
   groups: GroupSummary[]
   onSelectGroup?: (groupId: string) => void
+  onCreateGroup?: () => void
+  onLearnMore?: () => void
 }
 
-export const GroupsList: React.FC<GroupsListProps> = ({ groups, onSelectGroup }) => {
+export const GroupsList: React.FC<GroupsListProps> = ({
+  groups,
+  onSelectGroup,
+  onCreateGroup,
+  onLearnMore,
+}) => {
   // TODO: Fetch groups from smart contract
   // TODO: Add loading and empty states
   // TODO: Add filtering (active/completed)
@@ -57,22 +65,20 @@ export const GroupsList: React.FC<GroupsListProps> = ({ groups, onSelectGroup })
 
   const displayGroups = groups.length > 0 ? groups : sampleGroups
 
+  if (groups.length === 0 && onCreateGroup) {
+    return <EmptyGroupState onCreateGroup={onCreateGroup} onLearnMore={onLearnMore} />
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Your Groups</h2>
-        <button className="text-blue-600 hover:text-blue-700 font-semibold">
-          View All
-        </button>
+        <button className="text-blue-600 hover:text-blue-700 font-semibold">View All</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {displayGroups.map((group) => (
-          <div
-            key={group.id}
-            onClick={() => onSelectGroup?.(group.id)}
-            className="cursor-pointer"
-          >
+          <div key={group.id} onClick={() => onSelectGroup?.(group.id)} className="cursor-pointer">
             <GroupCard
               groupId={group.id}
               groupName={group.name}
