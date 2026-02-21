@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import dotenv from 'dotenv'
 import { errorHandler } from './middleware/errorHandler'
 import { requestLogger } from './middleware/requestLogger'
+import { setupSwagger } from './middleware/swagger'
 import { logger } from './utils/logger'
 import { groupsRouter } from './routes/groups'
 import { healthRouter } from './routes/health'
@@ -24,6 +25,9 @@ app.use(cors({
 app.use(requestLogger)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// API Documentation
+setupSwagger(app)
 
 // Routes
 app.use('/health', healthRouter)
