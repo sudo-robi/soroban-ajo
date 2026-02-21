@@ -2,6 +2,15 @@
 
 A blockchain-based savings group platform built on Stellar/Soroban, enabling communities to create and manage traditional "Ajo" or "Rotating Savings and Credit Associations" (ROSCAs) with full transparency and security.
 
+## 📖 Documentation
+
+**Interactive documentation site**: Run `npm run dev:docs` and visit http://localhost:3000
+
+- [Getting Started Guide](http://localhost:3000/docs/getting-started)
+- [API Reference](http://localhost:3001/api-docs) - Interactive Swagger UI
+- [Architecture Overview](http://localhost:3000/docs/architecture)
+- [Smart Contracts](http://localhost:3000/docs/contracts)
+
 ## 🏗 Project Structure
 
 ```

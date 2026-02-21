@@ -9,6 +9,7 @@ import { groupsRouter } from './routes/groups'
 import { healthRouter } from './routes/health'
 import { webhooksRouter } from './routes/webhooks'
 import { authRouter } from './routes/auth'
+import { setupSwagger } from './swagger'
 
 dotenv.config()
 
@@ -24,6 +25,9 @@ app.use(cors({
 app.use(requestLogger)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// API Documentation
+setupSwagger(app)
 
 // Routes
 app.use('/health', healthRouter)
