@@ -27,6 +27,7 @@ app.use(requestLogger)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use('/api', apiLimiter)
+app.set('trust proxy', 1)
 
 // API Documentation
 setupSwagger(app)
