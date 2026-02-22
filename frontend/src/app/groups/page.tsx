@@ -16,13 +16,13 @@ export default function GroupsPage() {
   } = useDashboard()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Savings Groups</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Savings Groups</h1>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-blue-600 dark:bg-indigo-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-indigo-500 transition-colors"
           >
             {showCreateForm ? 'View Groups' : 'Create Group'}
           </button>
