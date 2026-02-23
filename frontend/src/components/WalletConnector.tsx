@@ -4,12 +4,16 @@ import { useAuthContext } from '../context/AuthContext'
 export const WalletConnector: React.FC = () => {
   const { isAuthenticated, isLoading, address, network, login, logout, logoutAllDevices } = useAuthContext()
   const [showMenu, setShowMenu] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleConnect = async () => {
     try {
+      setError(null)
       await login({ provider: 'freighter', rememberMe: false })
-    } catch {
-      // Error is surfaced via auth context
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet'
+      setError(errorMessage)
+      console.error('Wallet connection error:', err)
     }
   }
 
@@ -28,15 +32,22 @@ export const WalletConnector: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <button
-        onClick={handleConnect}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        Connect Wallet
-      </button>
+      <div>
+        <button
+          onClick={handleConnect}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Connect Wallet
+        </button>
+        {error && (
+          <div className="absolute top-full mt-2 right-0 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm max-w-xs">
+            {error}
+          </div>
+        )}
+      </div>
     )
   }
 
