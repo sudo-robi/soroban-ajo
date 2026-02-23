@@ -20,7 +20,7 @@ export const MemberList: React.FC<MemberListProps> = ({ members, groupId: _group
   // TODO: Fetch members from smart contract
   // TODO: Display real member data with avatars
   // TODO: Add ability to remove members (creator only)
-  
+
   const mockMembers: Member[] = [
     {
       address: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
@@ -33,7 +33,7 @@ export const MemberList: React.FC<MemberListProps> = ({ members, groupId: _group
   const displayMembers = members.length > 0 ? members : mockMembers
 
   return (
-      <div className="bg-white rounded-lg shadow p-6" data-group-id={groupId}>
+    <div className="bg-white rounded-lg shadow p-6" data-group-id={_groupId}>
       <h3 className="text-2xl font-bold mb-4">Group Members ({displayMembers.length})</h3>
 
       <div className="overflow-x-auto">
@@ -56,13 +56,12 @@ export const MemberList: React.FC<MemberListProps> = ({ members, groupId: _group
                 <td className="px-4 py-3 text-sm font-semibold">${member.contributions}</td>
                 <td className="px-4 py-3 text-sm">
                   <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      member.status === 'active'
+                    className={`px-2 py-1 rounded text-xs font-semibold ${member.status === 'active'
                         ? 'bg-green-100 text-green-800'
                         : member.status === 'inactive'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}
                   >
                     {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
                   </span>

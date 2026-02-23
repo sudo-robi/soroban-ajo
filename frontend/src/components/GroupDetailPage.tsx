@@ -7,13 +7,9 @@ import { ContributionForm } from './ContributionForm'
 import { EmptyMemberState } from './EmptyMemberState'
 import { MemberList } from './MemberList'
 import { TransactionHistory } from './TransactionHistory'
+import { Member } from '../types'
 
 type TabKey = 'overview' | 'members' | 'history' | 'settings'
-
-interface Member {
-  id: string
-  address: string
-}
 
 interface GroupDetailPageProps {
   groupId: string
@@ -88,11 +84,10 @@ export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 px-2 border-b-2 font-semibold transition ${
-                  activeTab === tab
-                    ? 'border-blue-600 dark:border-indigo-400 text-blue-600 dark:text-indigo-400'
-                    : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
-                }`}
+                className={`py-4 px-2 border-b-2 font-semibold transition ${activeTab === tab
+                  ? 'border-blue-600 dark:border-indigo-400 text-blue-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                  }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
@@ -112,7 +107,7 @@ export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
                     Feb 28, 2026
                   </p>
                 </div>
-                <TransactionHistory groupId={groupId} transactions={[]} />
+                <TransactionHistory groupId={groupId} />
               </div>
               <ContributionForm groupId={groupId} contributionAmount={500} />
             </div>
@@ -128,7 +123,7 @@ export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
             </>
           )}
 
-          {activeTab === 'history' && <TransactionHistory groupId={groupId} transactions={[]} />}
+          {activeTab === 'history' && <TransactionHistory groupId={groupId} />}
 
           {activeTab === 'settings' && (
             <div className="space-y-4">

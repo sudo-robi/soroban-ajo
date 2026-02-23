@@ -5,7 +5,9 @@ import { GroupDetailPage } from '@/components/GroupDetailPage'
 
 export default function GroupPage() {
   const params = useParams()
-  const groupId = params.id as string
+  const groupId = params?.id as string
+
+  if (!groupId) return null
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 px-4 py-8">

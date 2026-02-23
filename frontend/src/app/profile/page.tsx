@@ -15,10 +15,10 @@ export default function ProfilePage() {
   const { profile, activities, isLoading, updateProfile, savePreferences } = useProfile()
   const [activeSection, setActiveSection] = useState<'overview' | 'edit' | 'settings' | 'activity'>('overview')
 
-  // Redirect if not authenticated
+  // Redirect to dashboard if not authenticated
   React.useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/')
+      router.push('/dashboard')
     }
   }, [isAuthenticated, router])
 
