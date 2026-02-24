@@ -16,7 +16,7 @@ const pages = [
 ];
 
 async function runAccessibilityTests() {
-  console.log('🔍 Starting accessibility tests...\n');
+  process.stdout.write('🔍 Starting accessibility tests...\n\n');
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -25,7 +25,7 @@ async function runAccessibilityTests() {
   const results = [];
 
   for (const testPage of pages) {
-    console.log(`Testing: ${testPage.name} (${testPage.url})`);
+    process.stdout.write(`Testing: ${testPage.name} (${testPage.url})\n`);
 
     try {
       await page.goto(testPage.url, { waitUntil: 'networkidle' });
@@ -47,44 +47,44 @@ async function runAccessibilityTests() {
       });
 
       if (violations.length === 0) {
-        console.log(`✅ No violations found\n`);
+        process.stdout.write(`✅ No violations found\n\n`);
       } else {
-        console.log(`❌ Found ${violations.length} violations:`);
+        process.stdout.write(`❌ Found ${violations.length} violations:\n`);
         violations.forEach((violation, index) => {
-          console.log(`  ${index + 1}. ${violation.id}: ${violation.description}`);
-          console.log(`     Impact: ${violation.impact}`);
-          console.log(`     Affected elements: ${violation.nodes.length}`);
+          process.stdout.write(`  ${index + 1}. ${violation.id}: ${violation.description}\n`);
+          process.stdout.write(`     Impact: ${violation.impact}\n`);
+          process.stdout.write(`     Affected elements: ${violation.nodes.length}\n`);
         });
-        console.log('');
+        process.stdout.write('\n');
       }
     } catch (error) {
-      console.error(`Error testing ${testPage.name}:`, error.message);
+      process.stderr.write(`Error testing ${testPage.name}: ${error.message}\n`);
     }
   }
 
   await browser.close();
 
   // Summary
-  console.log('\n📊 Test Summary:');
-  console.log(`Total pages tested: ${pages.length}`);
-  console.log(`Total violations: ${totalViolations}`);
+  process.stdout.write('\n📊 Test Summary:\n');
+  process.stdout.write(`Total pages tested: ${pages.length}\n`);
+  process.stdout.write(`Total violations: ${totalViolations}\n`);
 
   results.forEach((result) => {
     const status = result.violations === 0 ? '✅' : '❌';
-    console.log(`${status} ${result.page}: ${result.violations} violations, ${result.passes} passes`);
+    process.stdout.write(`${status} ${result.page}: ${result.violations} violations, ${result.passes} passes\n`);
   });
 
   // Exit with error if violations found
   if (totalViolations > 0) {
-    console.log('\n❌ Accessibility tests failed');
+    process.stdout.write('\n❌ Accessibility tests failed\n');
     process.exit(1);
   } else {
-    console.log('\n✅ All accessibility tests passed!');
+    process.stdout.write('\n✅ All accessibility tests passed!\n');
     process.exit(0);
   }
 }
 
 runAccessibilityTests().catch((error) => {
-  console.error('Fatal error:', error);
+  process.stderr.write(`Fatal error: ${error}\n`);
   process.exit(1);
 });
