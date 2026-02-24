@@ -539,7 +539,121 @@ export const initializeSoroban = (): SorobanService => {
               return await withRetry(
                 async () => {
 
-                  return []
+                    if (isTestEnvironment || !CONTRACT_ID) {
+                    // ── Mock data so the UI works during development ──────────
+                    // Remove this block once the contract is deployed and
+                    // CONTRACT_ID is set in your .env file.
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    return [
+                      {
+                        id: 'group-1',
+                        name: 'Family Savings Circle',
+                        description: 'Monthly family savings group',
+                        creator: userId, // marks this as a group the user created
+                        cycleLength: 30,
+                        contributionAmount: 50,
+                        maxMembers: 8,
+                        currentMembers: 5,
+                        totalContributions: 1250,
+                        status: 'active' as const,
+                        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+                        nextPayoutDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                        frequency: 'monthly' as const,
+                      },
+                      {
+                        id: 'group-2',
+                        name: 'Work Colleagues Pool',
+                        description: 'Bi-weekly savings with colleagues',
+                        creator: 'GOTHER_ADDRESS_HERE', // marks this as joined
+                        cycleLength: 14,
+                        contributionAmount: 25,
+                        maxMembers: 10,
+                        currentMembers: 8,
+                        totalContributions: 800,
+                        status: 'active' as const,
+                        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+                        nextPayoutDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString(),
+                        frequency: 'weekly' as const,
+                      },
+                      {
+                        id: 'group-3',
+                        name: 'Community Fund',
+                        description: 'Completed savings round',
+                        creator: userId,
+                        cycleLength: 30,
+                        contributionAmount: 100,
+                        maxMembers: 5,
+                        currentMembers: 5,
+                        totalContributions: 2500,
+                        status: 'completed' as const,
+                        createdAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+                        nextPayoutDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+                        frequency: 'monthly' as const,
+                      },
+                    ]
+                  }
+
+                  // ── Real contract call (runs when CONTRACT_ID is set) ──────
+                  // Verify wallet connection
+                  if (!(await isConnected())) {
+                    throw new Error('Freighter wallet is not installed.')
+                  }
+                  if (!(await isAllowed())) {
+                    await setAllowed()
+                  }
+
+                  const accessResult = await requestAccess()
+                  if (accessResult.error || !accessResult.address) {
+                    const error: any = new Error(accessResult.error || 'User public key not available.')
+                    error.code = 'UNAUTHORIZED'
+                    throw error
+                  }
+
+                  const sourceAccount = await server.getAccount(accessResult.address)
+                  const contract = new SorobanClient.Contract(CONTRACT_ID)
+
+                  // Call the contract's get_user_groups(address) function.
+                  // Adjust the function name to match your actual Rust contract.
+                  const transaction = new SorobanClient.TransactionBuilder(sourceAccount, {
+                    fee: '100',
+                    networkPassphrase: NETWORK_PASSPHRASE,
+                  })
+                    .addOperation(
+                      contract.call(
+                        'get_user_groups',
+                        SorobanClient.xdr.ScVal.scvString(userId)
+                      )
+                    )
+                    .setTimeout(30)
+                    .build()
+
+                  const simulated = await server.simulateTransaction(transaction)
+
+                  if (!SorobanClient.SorobanRpc.Api.isSimulationSuccess(simulated)) {
+                    throw new Error('get_user_groups simulation failed')
+                  }
+
+                  // Parse the returned ScVal into a JS array of Group objects.
+                  // The exact shape depends on your contract's return type.
+                  const rawGroups = SorobanClient.scValToNative(simulated.result!.retval)
+
+                  // Map contract response to the Group type expected by the UI.
+                  // Adjust field names to match your contract's actual field names.
+                  return (rawGroups as any[]).map((g: any) => ({
+                    id: String(g.id),
+                    name: String(g.name),
+                    description: g.description ? String(g.description) : undefined,
+                    creator: String(g.creator),
+                    cycleLength: Number(g.cycle_length),
+                    contributionAmount: Number(g.contribution_amount) / 10_000_000, // stroops → XLM
+                    maxMembers: Number(g.max_members),
+                    currentMembers: Number(g.current_members),
+                    totalContributions: Number(g.total_contributions) / 10_000_000,
+                    status: g.status as 'active' | 'completed' | 'paused',
+                    createdAt: new Date(Number(g.created_at) * 1000).toISOString(),
+                    nextPayoutDate: new Date(Number(g.next_payout_date) * 1000).toISOString(),
+                  }))
+
                 },
                 'getUserGroups'
               )

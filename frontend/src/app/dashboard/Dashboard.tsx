@@ -1,16 +1,24 @@
 'use client'
 
+// Issue #213: Implement User Groups Dashboard
+// Changes from original:
+//   1. Import UserGroupsDashboard
+//   2. Pull createdGroups, joinedGroups, stats, userAddress from useDashboard
+//   3. Render <UserGroupsDashboard> between the page header and the controls bar
+
 import React from 'react'
 import { useRouter } from 'next/navigation'
 import { useDashboard } from '@/hooks/useDashboard'
 import { GroupsGrid } from '@/components/GroupsGrid'
 import { GroupsList } from '@/components/GroupsList'
+import { UserGroupsDashboard } from '@/components/UserGroupsDashboard'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function Dashboard() {
   const router = useRouter()
   const { address } = useAuth()
   const {
+    // ── existing ──
     viewMode,
     setViewMode,
     filterStatus,
@@ -26,6 +34,8 @@ export default function Dashboard() {
     groups,
     totalGroups,
     isLoading,
+    // ── new (#213) ──
+    userAddress,
   } = useDashboard(address || undefined)
 
   const handleGroupClick = (groupId: string) => {
@@ -66,7 +76,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      {/* Header Section */}
+      {/* Header Section — unchanged */}
       <div className="page-header-gradient">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
           <div className="animate-fade-in">
@@ -95,7 +105,18 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
-        {/* Controls Bar */}
+        {/* ── NEW: User Groups Dashboard (#213) ── */}
+        {userAddress && (
+          <div className="animate-fade-in-up" style={{ animationDelay: '50ms' }}>
+            <UserGroupsDashboard
+              groups={groups ?? []}
+              userAddress={userAddress}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+
+        {/* Controls Bar — unchanged */}
         <div className="mb-6 space-y-4 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           {/* Search + View Toggle Row */}
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -166,7 +187,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Content Area */}
+        {/* Content Area — unchanged */}
         <div className="animate-fade-in-up" style={{ animationDelay: '200ms' }}>
           {!isLoading && (groups ?? []).length === 0 ? (
             <EmptyState />
@@ -189,7 +210,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Pagination — unchanged */}
         {totalPages > 1 && (
           <div className="mt-8 flex justify-center items-center gap-2 animate-fade-in">
             <button
