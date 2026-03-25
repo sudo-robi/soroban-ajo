@@ -1,5 +1,54 @@
 use soroban_sdk::{contracttype, Address, Vec};
 
+/// Strategy for determining payout order in a group.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PayoutOrderingStrategy {
+    /// Members receive payouts in the order they joined (default).
+    Sequential = 0,
+    /// Verifiable random selection using ledger sequence and timestamp as entropy.
+    Random = 1,
+    /// Members vote each cycle; the nominee with the most votes receives payout.
+    VotingBased = 2,
+    /// Member with the best on-time contribution history is selected.
+    ContributionBased = 3,
+    /// Members vote on declared need; most-voted member receives payout.
+    NeedBased = 4,
+}
+
+/// A single vote cast for the next payout recipient.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PayoutVote {
+    /// The group this vote belongs to.
+    pub group_id: u64,
+    /// The cycle number this vote applies to.
+    pub cycle: u32,
+    /// Address of the member casting the vote.
+    pub voter: Address,
+    /// Address nominated to receive the next payout.
+    pub nominee: Address,
+    /// Unix timestamp when the vote was cast.
+    pub timestamp: u64,
+}
+
+/// Records the determined payout order for a specific cycle.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PayoutOrder {
+    /// The group this payout order belongs to.
+    pub group_id: u64,
+    /// The cycle number this order applies to.
+    pub cycle: u32,
+    /// The address that will receive the payout.
+    pub recipient: Address,
+    /// The strategy used to select this recipient.
+    pub selection_method: PayoutOrderingStrategy,
+    /// Unix timestamp when the order was determined.
+    pub determined_at: u64,
+}
+
 /// State of a group in its lifecycle.
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -18,38 +67,39 @@ pub enum GroupState {
 /// An Ajo (also known as Esusu or Tontine) is a rotating savings group
 /// where members contribute a fixed amount each cycle, and one member
 /// receives the full pool each round until everyone has been paid out.
+///
+/// Fields are ordered by size for optimal memory alignment:
+/// - 16 bytes: i128
+/// - 32 bytes: Address
+/// - Variable: Vec<Address>
+/// - 8 bytes: u64 fields
+/// - 4 bytes: u32 fields
+/// - 1 byte: bool
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Group {
-    /// Unique group identifier, auto-incremented from storage counter
-    pub id: u64,
+    /// Fixed contribution amount each member must pay per cycle, denominated in stroops.
+    /// 1 XLM = 10,000,000 stroops.
+    pub contribution_amount: i128,
 
     /// Address of the member who created the group.
     /// Automatically added as the first member on creation.
     pub creator: Address,
 
-    /// Fixed contribution amount each member must pay per cycle, denominated in stroops.
-    /// 1 XLM = 10,000,000 stroops.
-    pub contribution_amount: i128,
-
-    /// Duration of each cycle in seconds.
-    /// When a cycle ends, the next payout can be triggered.
-    pub cycle_duration: u64,
-
-    /// Maximum number of members allowed in the group.
-    /// Must be between 2 and 100 (inclusive).
-    pub max_members: u32,
+    /// Token contract address for contributions and payouts.
+    /// Supports Stellar Asset Contract (SAC) tokens including XLM, USDC, and custom tokens.
+    pub token_address: Address,
 
     /// Ordered list of member addresses.
     /// Members receive payouts in the order they appear in this list.
     pub members: Vec<Address>,
 
-    /// Current cycle number, starts at 1 and increments after each payout.
-    pub current_cycle: u32,
+    /// Unique group identifier, auto-incremented from storage counter
+    pub id: u64,
 
-    /// Zero-based index into `members` indicating who receives the next payout.
-    /// When `payout_index == members.len()`, the group is complete.
-    pub payout_index: u32,
+    /// Duration of each cycle in seconds.
+    /// When a cycle ends, the next payout can be triggered.
+    pub cycle_duration: u64,
 
     /// Unix timestamp (seconds) when the group was created.
     pub created_at: u64,
@@ -57,6 +107,17 @@ pub struct Group {
     /// Unix timestamp (seconds) when the current cycle started.
     /// Used together with `cycle_duration` to calculate when the cycle ends.
     pub cycle_start_time: u64,
+
+    /// Maximum number of members allowed in the group.
+    /// Must be between 2 and 100 (inclusive).
+    pub max_members: u32,
+
+    /// Current cycle number, starts at 1 and increments after each payout.
+    pub current_cycle: u32,
+
+    /// Zero-based index into `members` indicating who receives the next payout.
+    /// When `payout_index == members.len()`, the group is complete.
+    pub payout_index: u32,
 
     /// Whether the group has completed all payout cycles.
     /// Once `true`, no further contributions or payouts are accepted.
@@ -74,84 +135,13 @@ pub struct Group {
 
     /// Current state of the group (Active, Cancelled, or Complete).
     pub state: GroupState,
-}
 
-/// Records a single member's contribution for a specific cycle.
-///
-/// Written to persistent storage when a member calls `contribute()`.
-/// Used to prevent double-contributions and to verify cycle completion
-/// before executing a payout.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContributionRecord {
-    /// Address of the member who made (or is expected to make) the contribution.
-    pub member: Address,
+    /// Insurance configuration for the group.
+    pub insurance_config: InsuranceConfig,
 
-    /// The group this contribution belongs to.
-    pub group_id: u64,
-
-    /// The cycle number this contribution is for.
-    pub cycle: u32,
-
-    /// Whether the member has paid their contribution for this cycle.
-    /// `true` means the contribution has been recorded; `false` means pending.
-    pub has_paid: bool,
-
-    /// Unix timestamp (seconds) when the contribution was recorded.
-    pub timestamp: u64,
-
-    /// Whether this contribution was made late (during grace period).
-    pub is_late: bool,
-
-    /// Penalty amount charged for late contribution (in stroops).
-    /// Zero if contribution was on time.
-    pub penalty_amount: i128,
-}
-
-/// Tracks penalty statistics for a member across all cycles in a group.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MemberPenaltyRecord {
-    /// Address of the member.
-    pub member: Address,
-
-    /// The group this record belongs to.
-    pub group_id: u64,
-
-    /// Total number of late contributions.
-    pub late_count: u32,
-
-    /// Total number of on-time contributions.
-    pub on_time_count: u32,
-
-    /// Total penalty amount paid (in stroops).
-    pub total_penalties: i128,
-
-    /// Reliability score (0-100): percentage of on-time contributions.
-    pub reliability_score: u32,
-}
-
-/// Records that a member has received their payout for a given cycle.
-///
-/// Written to persistent storage after `execute_payout()` succeeds.
-/// Can be used for audit trails and to prevent duplicate payouts.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PayoutRecord {
-    /// Address of the member who received the payout.
-    pub member: Address,
-
-    /// The group this payout belongs to.
-    pub group_id: u64,
-
-    /// The cycle number in which this payout was made.
-    pub cycle: u32,
-
-    /// Total payout amount in stroops (`contribution_amount × member_count`).
-    pub amount: i128,
-
-    /// Unix timestamp (seconds) when the payout was executed.
-    pub timestamp: u64,
+    /// Strategy used to determine payout order each cycle.
+    /// Defaults to `Sequential` (join order) when created via `create_group`.
+    pub payout_strategy: PayoutOrderingStrategy,
 }
 
 /// Comprehensive snapshot of a group's current state.
@@ -272,6 +262,18 @@ pub struct RefundVote {
     pub timestamp: u64,
 }
 
+/// Penalty statistics for a member within a group.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MemberPenaltyRecord {
+    pub member: Address,
+    pub group_id: u64,
+    pub late_count: u32,
+    pub on_time_count: u32,
+    pub total_penalties: i128,
+    pub reliability_score: u32,
+}
+
 /// Records a refund transaction.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -310,3 +312,194 @@ pub const VOTING_PERIOD: u64 = 604_800;
 
 /// Minimum approval percentage required for refund (51%).
 pub const REFUND_APPROVAL_THRESHOLD: u32 = 51;
+
+/// Detailed record of a member's contribution for a specific cycle.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContributionRecord {
+    pub group_id: u64,
+    pub cycle: u32,
+    pub member: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+    pub is_late: bool,
+    pub penalty_amount: i128,
+}
+
+
+/// Records that a member has received their payout for a given cycle.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PayoutRecord {
+    pub group_id: u64,
+    pub member: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+}
+
+/// Insurance configuration for a group.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InsuranceConfig {
+    /// Insurance rate in basis points (1 bp = 0.01%).
+    /// A value of 100 means 1% of each contribution goes to the insurance pool.
+    pub rate_bps: u32,
+    /// Whether insurance is enabled for this group.
+    pub is_enabled: bool,
+}
+
+/// Status of an insurance claim.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum ClaimStatus {
+    Pending = 0,
+    Approved = 1,
+    Rejected = 2,
+    Paid = 3,
+}
+
+/// Information about an insurance claim filed for non-payment.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InsuranceClaim {
+    /// The unique identifier for the claim.
+    pub id: u64,
+    /// The group the claim belongs to.
+    pub group_id: u64,
+    /// The cycle in which the default occurred.
+    pub cycle: u32,
+    /// The member who defaulted (did not pay).
+    pub defaulter: Address,
+    /// The member who is filing the claim (usually the cycle's recipient).
+    pub claimant: Address,
+    /// The amount being claimed.
+    pub amount: i128,
+    /// The current status of the claim.
+    pub status: ClaimStatus,
+    /// Unix timestamp when the claim was filed.
+    pub created_at: u64,
+}
+
+/// Insurance fund balance tracking.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InsurancePool {
+    /// Total balance available in the insurance pool for a specific token.
+    pub balance: i128,
+    /// Total amount paid out from the pool.
+    pub total_payouts: i128,
+    /// Total amount of claims filed.
+    pub pending_claims_count: u32,
+}
+
+/// Classification of contribution reminders sent to members.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ReminderType {
+    /// Cycle is about to start; heads-up to prepare funds.
+    CycleStarting = 0,
+    /// Contribution deadline is approaching within the member's threshold.
+    ContributionDue = 1,
+    /// Cycle ended but member is still within the grace period.
+    GracePeriod = 2,
+    /// Past the grace period — contribution is overdue.
+    Overdue = 3,
+}
+
+/// Per-member notification preferences stored on-chain.
+///
+/// Members opt-in to reminders by calling `set_notification_preferences`.
+/// Off-chain services listen for reminder events and deliver notifications
+/// according to these preferences.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MemberNotificationPreferences {
+    /// The member these preferences belong to.
+    pub member: Address,
+    /// Master toggle — when `false`, no reminders are emitted for this member.
+    pub enabled: bool,
+    /// How many hours before the cycle deadline a `ContributionDue` reminder fires.
+    pub reminder_hours_before: u64,
+    /// Whether to send reminders during the grace period.
+    pub grace_period_reminders: bool,
+    /// Whether to notify the member about payout events.
+    pub payout_notifications: bool,
+}
+
+/// On-chain record of a reminder that was triggered for a member.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReminderRecord {
+    /// The group this reminder pertains to.
+    pub group_id: u64,
+    /// The cycle at the time the reminder was triggered.
+    pub cycle: u32,
+    /// The member who was reminded.
+    pub member: Address,
+    /// The kind of reminder that fired.
+    pub reminder_type: ReminderType,
+    /// Ledger timestamp when the reminder was created.
+    pub triggered_at: u64,
+    /// The contribution deadline the reminder relates to.
+    pub deadline: u64,
+/// Group-level milestones that track progress through the savings cycle.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum GroupMilestone {
+    FirstPayout = 0,
+    HalfwayComplete = 1,
+    ThreeQuartersComplete = 2,
+    FullyCompleted = 3,
+    PerfectAttendance = 4,
+    ZeroPenalties = 5,
+}
+
+/// Individual member achievements earned through participation.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum MemberAchievement {
+    FirstContribution = 0,
+    PerfectAttendance = 1,
+    EarlyBird = 2,
+    Reliable = 3,
+    Veteran = 4,
+    HighRoller = 5,
+}
+
+/// Records a group milestone with context.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MilestoneRecord {
+    pub group_id: u64,
+    pub milestone: GroupMilestone,
+    pub achieved_at: u64,
+    pub cycle_number: u32,
+}
+
+/// Records a member achievement with context.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AchievementRecord {
+    pub member: Address,
+    pub achievement: MemberAchievement,
+    pub earned_at: u64,
+    pub group_id: u64,
+}
+
+/// Aggregated statistics for a member across all groups.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MemberStats {
+    pub member: Address,
+    pub total_groups_joined: u32,
+    pub total_groups_completed: u32,
+    pub total_contributions: u32,
+    pub on_time_contributions: u32,
+    pub late_contributions: u32,
+    pub total_amount_contributed: i128,
+    pub achievements: Vec<MemberAchievement>,
+}

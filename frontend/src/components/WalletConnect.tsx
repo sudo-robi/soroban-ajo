@@ -82,7 +82,7 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({
                         <div className="flex items-center gap-2 mb-1">
                             <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
                             <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                                Connected via {walletType === 'freighter' ? 'Freighter' : 'Albedo'}
+                                Connected via {walletType === 'freighter' ? 'Freighter' : walletType === 'lobstr' ? 'Lobstr' : 'Albedo'}
                             </span>
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-300 font-mono" title={address}>
@@ -175,6 +175,14 @@ export const WalletConnect: React.FC<WalletConnectProps> = ({
                                     className="block text-xs text-blue-600 hover:text-blue-700 underline"
                                 >
                                     Learn about Albedo →
+                                </a>
+                                <a
+                                    href="https://lobstr.co/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block text-xs text-blue-600 hover:text-blue-700 underline"
+                                >
+                                    Get Lobstr Wallet →
                                 </a>
                             </div>
                         </div>

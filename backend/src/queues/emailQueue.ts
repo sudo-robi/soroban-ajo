@@ -1,101 +1,93 @@
-import Queue from 'bull';
-import { emailService, EmailOptions } from '../services/emailService';
+import { createQueue, getQueue } from './queueManager'
+import { logger } from '../utils/logger'
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+// Queue name constant
+export const EMAIL_QUEUE_NAME = 'email'
 
-export const emailQueue = new Queue('email', REDIS_URL, {
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    },
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-});
+// Email job data types
+export interface EmailJobData {
+  to: string
+  subject: string
+  body: string
+  template?: string
+  attachments?: Array<{
+    filename: string
+    path: string
+  }>
+  priority?: number
+}
 
-// Process email jobs
-emailQueue.process(async (job) => {
-  const { type, data } = job.data;
+// Additional email options
+export interface EmailJobOptions {
+  delay?: number // Delay in milliseconds for scheduled emails
+  priority?: number // Job priority (higher = more important)
+}
 
-  switch (type) {
-    case 'welcome':
-      return emailService.sendWelcomeEmail(data.to, data.name);
+/**
+ * Get or create the email queue
+ */
+export function getEmailQueue() {
+  return getQueue(EMAIL_QUEUE_NAME) || createQueue(EMAIL_QUEUE_NAME)
+}
 
-    case 'contribution-reminder':
-      return emailService.sendContributionReminder(
-        data.to,
-        data.groupName,
-        data.amount,
-        data.dueDate
-      );
-
-    case 'payout':
-      return emailService.sendPayoutNotification(
-        data.to,
-        data.groupName,
-        data.amount,
-        data.txHash
-      );
-
-    case 'invitation':
-      return emailService.sendGroupInvitation(
-        data.to,
-        data.groupName,
-        data.inviterName,
-        data.inviteLink
-      );
-
-    case 'weekly-summary':
-      return emailService.sendWeeklySummary(data.to, data);
-
-    case 'receipt':
-      return emailService.sendTransactionReceipt(data.to, data);
-
-    case 'verification':
-      return emailService.sendVerificationEmail(data.to, data.token);
-
-    case 'custom':
-      return emailService.sendEmail(data as EmailOptions);
-
-    default:
-      throw new Error(`Unknown email type: ${type}`);
+/**
+ * Add an email job to the queue
+ */
+export async function addEmailJob(
+  data: EmailJobData,
+  options?: EmailJobOptions
+): Promise<string> {
+  const queue = getEmailQueue()
+  
+  const jobId = `${Date.now()}-${Math.random().toString(36).substring(7)}`
+  
+  const jobOptions: any = {
+    jobId,
   }
-});
+  
+  // Add delay if specified for scheduled emails
+  if (options?.delay) {
+    jobOptions.delay = options.delay
+  }
+  
+  // Add priority if specified
+  if (options?.priority !== undefined) {
+    jobOptions.priority = options.priority
+  }
+  
+  await queue.add('send-email', data, jobOptions)
+  
+  logger.info(`Email job added to queue`, {
+    to: data.to,
+    subject: data.subject,
+    jobId,
+    delay: options?.delay || 0,
+    priority: options?.priority || 0,
+  })
+  
+  return jobId
+}
 
-// Queue event handlers
-emailQueue.on('completed', (_job) => {
-  // Job completed successfully
-});
-
-emailQueue.on('failed', (job, err) => {
-  console.error(`Email job ${job?.id} failed:`, err.message);
-});
-
-// Helper functions to add jobs
-export const queueEmail = {
-  welcome: (to: string, name: string) =>
-    emailQueue.add({ type: 'welcome', data: { to, name } }),
-
-  contributionReminder: (to: string, groupName: string, amount: string, dueDate: string) =>
-    emailQueue.add({ type: 'contribution-reminder', data: { to, groupName, amount, dueDate } }),
-
-  payout: (to: string, groupName: string, amount: string, txHash: string) =>
-    emailQueue.add({ type: 'payout', data: { to, groupName, amount, txHash } }),
-
-  invitation: (to: string, groupName: string, inviterName: string, inviteLink: string) =>
-    emailQueue.add({ type: 'invitation', data: { to, groupName, inviterName, inviteLink } }),
-
-  weeklySummary: (to: string, data: { groupName: string; contributions: number; balance: string }) =>
-    emailQueue.add({ type: 'weekly-summary', data: { to, ...data } }),
-
-  receipt: (to: string, data: { groupName: string; amount: string; txHash: string; date: string }) =>
-    emailQueue.add({ type: 'receipt', data: { to, ...data } }),
-
-  verification: (to: string, token: string) =>
-    emailQueue.add({ type: 'verification', data: { to, token } }),
-
-  custom: (options: EmailOptions) =>
-    emailQueue.add({ type: 'custom', data: options }),
-};
+/**
+ * Get email queue statistics
+ */
+export async function getEmailQueueStats() {
+  const queue = getEmailQueue()
+  if (!queue) return null
+  
+  const [waiting, active, completed, failed, delayed] = await Promise.all([
+    queue.getWaitingCount(),
+    queue.getActiveCount(),
+    queue.getCompletedCount(),
+    queue.getFailedCount(),
+    queue.getDelayedCount(),
+  ])
+  
+  return {
+    waiting,
+    active,
+    completed,
+    failed,
+    delayed,
+  }
+}

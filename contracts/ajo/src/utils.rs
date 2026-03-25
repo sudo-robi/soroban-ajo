@@ -1,6 +1,7 @@
 use soroban_sdk::{Address, Env, Vec};
 
-use crate::types::Group;
+use crate::types::{Group, GroupMilestone, MemberAchievement, PayoutOrder, PayoutOrderingStrategy};
+use crate::errors::AjoError;
 
 /// Returns `true` if `address` appears in the group's `members` list.
 ///
@@ -13,13 +14,9 @@ use crate::types::Group;
 ///
 /// # Returns
 /// `true` if the address is found in the members list, `false` otherwise
+#[inline]
 pub fn is_member(members: &Vec<Address>, address: &Address) -> bool {
-    for member in members.iter() {
-        if member == *address {
-            return true;
-        }
-    }
-    false
+    members.iter().any(|m| m == *address)
 }
 
 /// Returns `true` if every member of the group has contributed in the current cycle.
@@ -34,13 +31,14 @@ pub fn is_member(members: &Vec<Address>, address: &Address) -> bool {
 ///
 /// # Returns
 /// `true` if all members have contributed, `false` otherwise
+#[inline]
 pub fn all_members_contributed(env: &Env, group: &Group) -> bool {
-    for member in group.members.iter() {
-        if !crate::storage::has_contributed(env, group.id, group.current_cycle, &member) {
-            return false;
-        }
-    }
-    true
+    let group_id = group.id;
+    let cycle = group.current_cycle;
+    
+    group.members.iter().all(|member| {
+        crate::storage::has_contributed(env, group_id, cycle, &member)
+    })
 }
 
 /// Calculates the total payout amount for a single cycle.
@@ -53,6 +51,7 @@ pub fn all_members_contributed(env: &Env, group: &Group) -> bool {
 ///
 /// # Returns
 /// Total payout in stroops (`contribution_amount × member_count`)
+#[inline]
 pub fn calculate_payout_amount(group: &Group) -> i128 {
     let member_count = group.members.len() as i128;
     group.contribution_amount * member_count
@@ -68,6 +67,7 @@ pub fn calculate_payout_amount(group: &Group) -> i128 {
 ///
 /// # Returns
 /// Current Unix timestamp in seconds
+#[inline]
 pub fn get_current_timestamp(env: &Env) -> u64 {
     env.ledger().timestamp()
 }
@@ -132,178 +132,302 @@ pub fn validate_group_params(
     Ok(())
 }
 
-/// Returns the start and end timestamps for the group's current cycle window.
+/// Validates grace period and penalty rate parameters used when creating a group.
 ///
-/// The cycle window is `[cycle_start_time, cycle_start_time + cycle_duration)`.
-/// This is a pure calculation that does not read the ledger clock.
-///
-/// # Arguments
-/// * `group` - The group whose cycle window is being computed
-/// * `_current_time` - Reserved for future use (e.g., dynamic window adjustment)
-///
-/// # Returns
-/// A `(start, end)` tuple of Unix timestamps in seconds
-pub fn get_cycle_window(group: &Group, _current_time: u64) -> (u64, u64) {
-    let cycle_start = group.cycle_start_time;
-    let cycle_end = cycle_start + group.cycle_duration;
-    (cycle_start, cycle_end)
-}
-
-/// Returns `true` if `current_time` falls within the group's active cycle window.
-///
-/// The window is inclusive of `cycle_start_time` and exclusive of `cycle_end_time`
-/// (`start <= current_time < end`). Once this returns `false`, the cycle has expired
-/// and a payout can be triggered.
-///
-/// # Arguments
-/// * `group` - The group whose cycle window is being checked
-/// * `current_time` - The timestamp to evaluate, typically from [`get_current_timestamp`]
-///
-/// # Returns
-/// `true` if current_time is within the cycle window, `false` otherwise
-pub fn is_within_cycle_window(group: &Group, current_time: u64) -> bool {
-    let (cycle_start, cycle_end) = get_cycle_window(group, current_time);
-    current_time >= cycle_start && current_time < cycle_end
-}
-
-/// Returns `true` if `current_time` is within the grace period after cycle ends.
-///
-/// Grace period starts when the cycle ends and lasts for `group.grace_period` seconds.
-/// During this time, members can still contribute but will incur penalties.
-///
-/// # Arguments
-/// * `group` - The group whose grace period is being checked
-/// * `current_time` - The timestamp to evaluate
-///
-/// # Returns
-/// `true` if current_time is within the grace period, `false` otherwise
-pub fn is_within_grace_period(group: &Group, current_time: u64) -> bool {
-    let cycle_end = group.cycle_start_time + group.cycle_duration;
-    let grace_end = cycle_end + group.grace_period;
-    current_time >= cycle_end && current_time < grace_end
-}
-
-/// Returns the grace period end timestamp for the current cycle.
-///
-/// # Arguments
-/// * `group` - The group whose grace period end is being calculated
-///
-/// # Returns
-/// Unix timestamp when grace period ends
-pub fn get_grace_period_end(group: &Group) -> u64 {
-    group.cycle_start_time + group.cycle_duration + group.grace_period
-}
-
-/// Calculates the penalty amount for a late contribution.
-///
-/// Penalty = contribution_amount × (penalty_rate / 100)
-/// For example, if contribution is 100 XLM and penalty_rate is 5,
-/// the penalty is 5 XLM.
-///
-/// # Arguments
-/// * `contribution_amount` - The base contribution amount
-/// * `penalty_rate` - Penalty rate as percentage (0-100)
-///
-/// # Returns
-/// Penalty amount in stroops
-pub fn calculate_penalty(contribution_amount: i128, penalty_rate: u32) -> i128 {
-    (contribution_amount * penalty_rate as i128) / 100
-}
-
-/// Checks if a contribution is late and calculates penalty if applicable.
-///
-/// Returns a tuple of (is_late, penalty_amount).
-/// - If within cycle window: (false, 0)
-/// - If within grace period: (true, calculated_penalty)
-/// - If after grace period: returns error via caller
-///
-/// # Arguments
-/// * `group` - The group being contributed to
-/// * `current_time` - The timestamp of the contribution
-///
-/// # Returns
-/// `(is_late, penalty_amount)` tuple
-pub fn check_contribution_timing(group: &Group, current_time: u64) -> (bool, i128) {
-    if is_within_cycle_window(group, current_time) {
-        // On time - no penalty
-        (false, 0)
-    } else if is_within_grace_period(group, current_time) {
-        // Late but within grace period - apply penalty
-        let penalty = calculate_penalty(group.contribution_amount, group.penalty_rate);
-        (true, penalty)
-    } else {
-        // Too late - caller should return error
-        (true, 0)
-    }
-}
-
-/// Validates grace period and penalty rate parameters.
-///
-/// # Arguments
-/// * `grace_period` - Grace period duration in seconds
-/// * `penalty_rate` - Penalty rate as percentage (0-100)
-///
-/// # Returns
-/// `Ok(())` if valid
-///
-/// # Errors
-/// * `InvalidGracePeriod` - if grace_period is unreasonably long (> 7 days)
-/// * `InvalidPenaltyRate` - if penalty_rate > 100
+/// * `grace_period` - must be <= 7 days (604800 seconds)
+/// * `penalty_rate` - must be between 0 and 100 inclusive
 pub fn validate_penalty_params(
     grace_period: u64,
     penalty_rate: u32,
 ) -> Result<(), crate::errors::AjoError> {
-    const MAX_GRACE_PERIOD: u64 = 7 * 24 * 60 * 60; // 7 days
-
-    if grace_period > MAX_GRACE_PERIOD {
+    const MAX_GRACE: u64 = 604_800; // 7 days
+    if grace_period > MAX_GRACE {
         return Err(crate::errors::AjoError::InvalidGracePeriod);
     }
-
     if penalty_rate > 100 {
         return Err(crate::errors::AjoError::InvalidPenaltyRate);
     }
-
     Ok(())
 }
 
-/// Updates or creates a member's penalty record after a contribution.
+/// Returns the unix timestamp (seconds) when the current cycle's grace period ends.
+/// Calculated as `cycle_start_time + cycle_duration + grace_period`.
+pub fn get_grace_period_end(group: &crate::types::Group) -> u64 {
+    group.cycle_start_time + group.cycle_duration + group.grace_period
+}
+
+/// Returns `true` if the provided `current_time` falls after the cycle end
+/// and before or at the grace period end.
+pub fn is_within_grace_period(group: &crate::types::Group, current_time: u64) -> bool {
+    let cycle_end = group.cycle_start_time + group.cycle_duration;
+    let grace_end = get_grace_period_end(group);
+    current_time > cycle_end && current_time <= grace_end
+}
+
+// ── Dynamic payout ordering ───────────────────────────────────────────────────
+
+/// Determines and records the next payout recipient according to the group's
+/// [`PayoutOrderingStrategy`].
 ///
-/// # Arguments
-/// * `env` - The contract environment
-/// * `group_id` - The group
-/// * `member` - The member's address
-/// * `is_late` - Whether the contribution was late
-/// * `penalty_amount` - Penalty charged (0 if on time)
-pub fn update_member_penalty_record(
+/// For [`Sequential`](PayoutOrderingStrategy::Sequential) this reproduces the
+/// original join-order behaviour using `group.payout_index` directly.
+/// For all other strategies it queries eligible members (those who have not yet
+/// received a payout) and applies the relevant selection algorithm.
+///
+/// The result is committed to persistent storage as a [`PayoutOrder`] and
+/// returned so the caller can execute the token transfer immediately.
+///
+/// # Errors
+/// * [`AjoError::NoEligibleMembers`] — all members have already been paid, or
+///   the internal members list is empty.
+/// * [`AjoError::NoMembers`] — used only for Sequential when `payout_index`
+///   points beyond the members list (should never happen in practice).
+pub fn determine_next_recipient(env: &Env, group: &Group) -> Result<Address, AjoError> {
+    let recipient = preview_next_recipient(env, group)?;
+
+    // Persist the determined order for audit / transparency
+    let order = PayoutOrder {
+        group_id: group.id,
+        cycle: group.current_cycle,
+        recipient: recipient.clone(),
+        selection_method: group.payout_strategy,
+        determined_at: get_current_timestamp(env),
+    };
+    crate::storage::store_payout_order(env, group.id, group.current_cycle, &order);
+
+    Ok(recipient)
+}
+
+/// Computes the next recipient using the group's payout strategy without
+/// writing any storage side effects.
+pub fn preview_next_recipient(env: &Env, group: &Group) -> Result<Address, AjoError> {
+    match group.payout_strategy {
+        PayoutOrderingStrategy::Sequential => select_sequential(group),
+        PayoutOrderingStrategy::Random => select_random(env, group),
+        PayoutOrderingStrategy::VotingBased | PayoutOrderingStrategy::NeedBased => {
+            select_by_votes(env, group)
+        }
+        PayoutOrderingStrategy::ContributionBased => select_by_contribution(env, group),
+    }
+}
+
+/// Selects the next recipient by join order (current `payout_index`).
+fn select_sequential(group: &Group) -> Result<Address, AjoError> {
+    group
+        .members
+        .get(group.payout_index)
+        .ok_or(AjoError::NoMembers)
+}
+
+/// Selects a random eligible member using ledger sequence and timestamp as
+/// entropy.  This is *verifiable* but not unpredictable by validators —
+/// acceptable for informal savings groups.
+///
+/// Entropy is mixed with a 64-bit multiplicative hash constant to improve
+/// distribution when the raw seed values are small.
+fn select_random(env: &Env, group: &Group) -> Result<Address, AjoError> {
+    let eligible = get_eligible_members(env, group)?;
+    let len = eligible.len() as u64;
+
+    // Combine ledger sequence and timestamp, then mix bits
+    let raw = (env.ledger().sequence() as u64)
+        .wrapping_add(env.ledger().timestamp())
+        .wrapping_mul(0x9e3779b97f4a7c15_u64); // Fibonacci-hashing constant
+    let index = (raw % len) as u32;
+
+    eligible.get(index).ok_or(AjoError::NoEligibleMembers)
+}
+
+/// Selects the eligible member who received the most votes this cycle.
+/// In the event of a tie the candidate who appears first in `group.members`
+/// wins (deterministic tiebreaker).  If no votes have been cast the
+/// function falls back to the first eligible member in join order so that a
+/// payout can always be executed.
+fn select_by_votes(env: &Env, group: &Group) -> Result<Address, AjoError> {
+    let eligible = get_eligible_members(env, group)?;
+
+    let mut best: Option<Address> = None;
+    let mut best_count: u32 = 0;
+
+    // Iterate over eligible candidates and count votes in O(n²).
+    // Acceptable for groups capped at 100 members.
+    for candidate in eligible.iter() {
+        let mut count: u32 = 0;
+        for voter in group.members.iter() {
+            if let Some(vote) =
+                crate::storage::get_payout_vote(env, group.id, group.current_cycle, &voter)
+            {
+                if vote.nominee == candidate {
+                    count += 1;
+                }
+            }
+        }
+        // Strict greater-than preserves first-encountered candidate on ties.
+        if count > best_count {
+            best_count = count;
+            best = Some(candidate);
+        }
+    }
+
+    // Fall back to first eligible member when nobody has voted yet.
+    best.or_else(|| eligible.get(0)).ok_or(AjoError::NoEligibleMembers)
+}
+
+/// Selects the eligible member with the highest reliability score
+/// (fewest late payments).  In the event of a tie the member who appears
+/// first in `group.members` wins.
+fn select_by_contribution(env: &Env, group: &Group) -> Result<Address, AjoError> {
+    let eligible = get_eligible_members(env, group)?;
+
+    let mut best: Option<Address> = None;
+    let mut best_score: u32 = 0;
+
+    for member in eligible.iter() {
+        let score = crate::storage::get_member_penalty(env, group.id, &member)
+            .map(|r| r.reliability_score)
+            .unwrap_or(100_u32); // 100 = perfect — no penalty record yet
+
+        // Strict greater-than: first member wins ties (preserves join-order fairness).
+        if score > best_score || best.is_none() {
+            best_score = score;
+            best = Some(member);
+        }
+    }
+
+    best.ok_or(AjoError::NoEligibleMembers)
+}
+
+/// Returns the subset of group members who have **not** yet received a payout.
+///
+/// Preserves the original join order of `group.members`.
+fn get_eligible_members(env: &Env, group: &Group) -> Result<Vec<Address>, AjoError> {
+    let mut eligible = Vec::new(env);
+    for member in group.members.iter() {
+        if !crate::storage::has_received_payout(env, group.id, &member) {
+            eligible.push_back(member);
+        }
+    }
+    if eligible.is_empty() {
+        return Err(AjoError::NoEligibleMembers);
+    }
+    Ok(eligible)
+}
+
+// ── Milestone & achievement detection ─────────────────────────────────────
+
+/// Checks which group milestones have been newly achieved based on group state.
+pub fn check_group_milestones(env: &Env, group: &Group) -> Vec<GroupMilestone> {
+    let mut milestones = Vec::new(env);
+
+    let total_cycles = group.members.len() as u32;
+    let completed_cycles = group.payout_index;
+
+    // First payout
+    if completed_cycles == 1 {
+        milestones.push_back(GroupMilestone::FirstPayout);
+    }
+
+    // Halfway complete
+    if total_cycles >= 2 && completed_cycles == total_cycles / 2 {
+        milestones.push_back(GroupMilestone::HalfwayComplete);
+    }
+
+    // Three quarters complete
+    if total_cycles >= 4 && completed_cycles == (total_cycles * 3) / 4 {
+        milestones.push_back(GroupMilestone::ThreeQuartersComplete);
+    }
+
+    // Fully completed
+    if group.is_complete {
+        milestones.push_back(GroupMilestone::FullyCompleted);
+
+        // Check for perfect attendance (all members on-time every cycle)
+        if check_perfect_attendance(env, group) {
+            milestones.push_back(GroupMilestone::PerfectAttendance);
+        }
+
+        // Check for zero penalties
+        if check_zero_penalties(env, group) {
+            milestones.push_back(GroupMilestone::ZeroPenalties);
+        }
+    }
+
+    milestones
+}
+
+/// Returns true if all members contributed on time every cycle (no late contributions).
+fn check_perfect_attendance(env: &Env, group: &Group) -> bool {
+    for member in group.members.iter() {
+        if let Some(penalty) = crate::storage::get_member_penalty(env, group.id, &member) {
+            if penalty.late_count > 0 {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Returns true if no penalties were incurred across all cycles.
+fn check_zero_penalties(env: &Env, group: &Group) -> bool {
+    let total_cycles = group.members.len() as u32;
+    for cycle in 1..=total_cycles {
+        let pool = crate::storage::get_cycle_penalty_pool(env, group.id, cycle);
+        if pool > 0 {
+            return false;
+        }
+    }
+    true
+}
+
+/// Checks which member achievements have been newly earned.
+pub fn check_member_achievements(
     env: &Env,
-    group_id: u64,
     member: &Address,
-    is_late: bool,
-    penalty_amount: i128,
-) {
-    let mut record = crate::storage::get_member_penalty(env, group_id, member).unwrap_or(
-        crate::types::MemberPenaltyRecord {
-            member: member.clone(),
-            group_id,
-            late_count: 0,
-            on_time_count: 0,
-            total_penalties: 0,
-            reliability_score: 100,
-        },
-    );
+    stats: &crate::types::MemberStats,
+) -> Vec<MemberAchievement> {
+    let mut achievements = Vec::new(env);
 
-    if is_late {
-        record.late_count += 1;
-        record.total_penalties += penalty_amount;
-    } else {
-        record.on_time_count += 1;
+    // First contribution
+    if stats.total_contributions == 1 {
+        achievements.push_back(MemberAchievement::FirstContribution);
     }
 
-    // Calculate reliability score: (on_time / total) * 100
-    let total_contributions = record.on_time_count + record.late_count;
-    if total_contributions > 0 {
-        record.reliability_score = (record.on_time_count * 100) / total_contributions;
+    // Reliable (95%+ on-time rate)
+    if stats.total_contributions >= 5 {
+        let on_time_rate = (stats.on_time_contributions * 100) / stats.total_contributions;
+        if on_time_rate >= 95 {
+            achievements.push_back(MemberAchievement::Reliable);
+        }
     }
 
-    crate::storage::store_member_penalty(env, group_id, member, &record);
+    // Veteran (5+ completed groups)
+    if stats.total_groups_completed >= 5 {
+        achievements.push_back(MemberAchievement::Veteran);
+    }
+
+    // High roller (1M+ XLM = 10^13 stroops contributed)
+    if stats.total_amount_contributed >= 10_000_000_000_000 {
+        achievements.push_back(MemberAchievement::HighRoller);
+    }
+
+    // Perfect attendance check (no late contributions ever)
+    if stats.total_contributions >= 10 && stats.late_contributions == 0 {
+        achievements.push_back(MemberAchievement::PerfectAttendance);
+    }
+
+    achievements
+}
+
+/// Initializes default MemberStats for a new member.
+pub fn default_member_stats(env: &Env, member: &Address) -> crate::types::MemberStats {
+    crate::types::MemberStats {
+        member: member.clone(),
+        total_groups_joined: 0,
+        total_groups_completed: 0,
+        total_contributions: 0,
+        on_time_contributions: 0,
+        late_contributions: 0,
+        total_amount_contributed: 0,
+        achievements: Vec::new(env),
+    }
 }

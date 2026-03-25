@@ -139,3 +139,63 @@ pub fn emit_emergency_refund(
     let topics = (symbol_short!("emrefund"), group_id);
     env.events().publish(topics, (admin, total_refunded));
 }
+
+/// Emit an event when a member votes for the next payout recipient
+pub fn emit_payout_vote(env: &Env, group_id: u64, voter: &Address, nominee: &Address, cycle: u32) {
+    let topics = (symbol_short!("pvote"), group_id, cycle);
+    env.events().publish(topics, (voter, nominee));
+}
+
+/// Emit an event when the payout recipient for a cycle is determined
+pub fn emit_payout_order_determined(
+    env: &Env,
+    group_id: u64,
+    cycle: u32,
+    recipient: &Address,
+    strategy: u32,
+) {
+    let topics = (symbol_short!("porder"), group_id, cycle);
+    env.events().publish(topics, (recipient, strategy));
+}
+
+/// Emit an event when a member updates their notification preferences
+pub fn emit_preferences_updated(env: &Env, member: &Address) {
+    let topics = (symbol_short!("notpref"),);
+    env.events().publish(topics, member);
+}
+
+/// Emit an event when a contribution reminder is triggered for a member.
+///
+/// Off-chain notification services should listen for this event and
+/// deliver the appropriate message based on `reminder_type`.
+pub fn emit_reminder_triggered(
+    env: &Env,
+    group_id: u64,
+    member: &Address,
+    reminder_type: u32,
+    deadline: u64,
+) {
+    let topics = (symbol_short!("remind"), group_id);
+    env.events()
+        .publish(topics, (member, reminder_type, deadline));
+/// Emit an event when a group milestone is achieved
+pub fn emit_milestone_achieved(
+    env: &Env,
+    group_id: u64,
+    milestone: u32,
+    cycle: u32,
+) {
+    let topics = (symbol_short!("mileston"), group_id);
+    env.events().publish(topics, (milestone, cycle));
+}
+
+/// Emit an event when a member earns an achievement
+pub fn emit_achievement_earned(
+    env: &Env,
+    member: &Address,
+    achievement: u32,
+    group_id: u64,
+) {
+    let topics = (symbol_short!("achieve"), group_id);
+    env.events().publish(topics, (member, achievement));
+}
