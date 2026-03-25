@@ -460,6 +460,97 @@
   .btn-join:active {
     transform: translateY(0);
   }
+
+  /* --- Gradient Button Variants (Issue #317) --- */
+  .btn-gradient-primary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-white rounded-xl
+           transition-all duration-300 ease-out;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 15px -3px rgba(102, 126, 234, 0.4);
+  }
+  .btn-gradient-primary:hover {
+    background: linear-gradient(135deg, #7c8ef5 0%, #8b5fbf 100%);
+    box-shadow: 0 8px 25px -5px rgba(102, 126, 234, 0.5);
+    transform: translateY(-1px) scale(1.02);
+  }
+  .btn-gradient-primary:active {
+    transform: translateY(0) scale(1);
+  }
+
+  .btn-gradient-success {
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-white rounded-xl
+           transition-all duration-300 ease-out;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    box-shadow: 0 4px 15px -3px rgba(17, 153, 142, 0.4);
+  }
+  .btn-gradient-success:hover {
+    box-shadow: 0 8px 25px -5px rgba(17, 153, 142, 0.5);
+    transform: translateY(-1px) scale(1.02);
+  }
+  .btn-gradient-success:active {
+    transform: translateY(0) scale(1);
+  }
+
+  .btn-gradient-accent {
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-white rounded-xl
+           transition-all duration-300 ease-out;
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    box-shadow: 0 4px 15px -3px rgba(250, 112, 154, 0.4);
+  }
+  .btn-gradient-accent:hover {
+    box-shadow: 0 8px 25px -5px rgba(250, 112, 154, 0.5);
+    transform: translateY(-1px) scale(1.02);
+  }
+  .btn-gradient-accent:active {
+    transform: translateY(0) scale(1);
+  }
+
+  /* --- Gradient Badge Variants (Issue #317) --- */
+  .badge-gradient-primary {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .badge-gradient-success {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  }
+
+  .badge-gradient-warning {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
+
+  .badge-gradient-info {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+
+  .badge-gradient-accent {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white;
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  }
+
+  /* --- Gradient Progress Bar (Issue #317) --- */
+  .progress-bar-gradient-primary {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .progress-bar-gradient-success {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+  }
+
+  .progress-bar-gradient-accent {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: linear-gradient(90deg, #fa709a 0%, #fee140 100%);
+  }
+
+  .progress-bar-gradient-info {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  }
 }
 
 /* ===== Miscellaneous ===== */

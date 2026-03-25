@@ -166,6 +166,55 @@ body {
     text-wrap: balance;
   }
 
+  /* --- Gradient Text Utilities --- */
+  .text-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-stellar {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-accent {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-info {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* --- Gradient Border Utility --- */
+  .gradient-border-primary {
+    position: relative;
+    border-radius: 0.75rem;
+    padding: 2px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .gradient-border-stellar {
+    position: relative;
+    border-radius: 0.75rem;
+    padding: 2px;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
   /* Screen Reader Only */
   .sr-only {
     position: absolute;
