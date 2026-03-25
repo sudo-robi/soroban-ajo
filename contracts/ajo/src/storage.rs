@@ -1,5 +1,7 @@
 use soroban_sdk::{symbol_short, Address, Env, Symbol, Vec};
 
+use crate::types::{GroupInvitation, JoinRequest};
+
 /// Logical storage key categories used by the Ajo contract.
 ///
 /// Soroban storage uses raw key values; this enum documents the naming

@@ -242,6 +242,8 @@ impl AjoContract {
     /// Adds a new member to an active group if space is available.
     /// The member's authentication is required. The member cannot join if they
     /// are already a member, the group is full, or the group has completed all cycles.
+    /// For InviteOnly groups, requires a valid, non-expired invitation.
+    /// For ApprovalRequired groups, direct joining is not allowed.
     ///
     /// # Arguments
     /// * `env` - The Soroban contract environment
@@ -256,6 +258,9 @@ impl AjoContract {
     /// * `MaxMembersExceeded` - If the group has reached max members
     /// * `AlreadyMember` - If the address is already a member
     /// * `GroupComplete` - If the group has completed all cycles
+    /// * `GroupAccessRestricted` - If the group is invite-only or approval-required
+    /// * `InvitationExpired` - If the invitation has expired
+    /// * `InvitationAlreadyAccepted` - If the invitation was already used
     pub fn join_group(env: Env, member: Address, group_id: u64) -> Result<(), AjoError> {
         // Check if paused
         pausable::ensure_not_paused(&env)?;
@@ -300,11 +305,46 @@ impl AjoContract {
             return Err(AjoError::MaxMembersExceeded);
         }
 
+        // Check access type
+        match group.access_type {
+            GroupAccessType::Open => {
+                // Open groups allow direct joining
+            }
+            GroupAccessType::InviteOnly => {
+                // Check for valid invitation
+                let invitation = storage::get_invitation(&env, group_id, &member)
+                    .ok_or(AjoError::InvitationNotFound)?;
+
+                // Check if invitation is expired
+                let now = utils::get_current_timestamp(&env);
+                if now > invitation.expires_at {
+                    return Err(AjoError::InvitationExpired);
+                }
+
+                // Check if already accepted
+                if invitation.accepted {
+                    return Err(AjoError::InvitationAlreadyAccepted);
+                }
+            }
+            GroupAccessType::ApprovalRequired => {
+                // Direct joining is not allowed for approval-required groups
+                return Err(AjoError::GroupAccessRestricted);
+            }
+        }
+
         // Add member
         group.members.push_back(member.clone());
 
         // Update storage
         storage::store_group(&env, group_id, &group);
+
+        // Mark invitation as accepted if exists
+        if let GroupAccessType::InviteOnly = group.access_type {
+            if let Some(mut invitation) = storage::get_invitation(&env, group_id, &member) {
+                invitation.accepted = true;
+                storage::store_invitation(&env, group_id, &member, &invitation);
+            }
+        }
 
         // Emit event
         events::emit_member_joined(&env, group_id, &member);
