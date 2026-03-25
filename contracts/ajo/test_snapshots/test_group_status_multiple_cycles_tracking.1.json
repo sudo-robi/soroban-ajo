@@ -27,6 +27,12 @@
                 },
                 {
                   "u32": 3
+                },
+                {
+                  "u64": 86400
+                },
+                {
+                  "u32": 5
                 }
               ]
             }
@@ -291,7 +297,7 @@
   "ledger": {
     "protocol_version": 21,
     "sequence_number": 0,
-    "timestamp": 0,
+    "timestamp": 2073603,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
     "min_persistent_entry_ttl": 4096,
@@ -896,7 +902,15 @@
                         "symbol": "cycle_start_time"
                       },
                       "val": {
-                        "u64": 0
+                        "u64": 1382402
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "grace_period"
+                      },
+                      "val": {
+                        "u64": 86400
                       }
                     },
                     {
@@ -947,6 +961,22 @@
                       },
                       "val": {
                         "u32": 3
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "penalty_rate"
+                      },
+                      "val": {
+                        "u32": 5
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "state"
+                      },
+                      "val": {
+                        "u32": 0
                       }
                     }
                   ]
@@ -1606,6 +1636,12 @@
                 },
                 {
                   "u32": 3
+                },
+                {
+                  "u64": 86400
+                },
+                {
+                  "u32": 5
                 }
               ]
             }
@@ -1904,10 +1940,29 @@
                 },
                 {
                   "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
+                  }
+                },
+                {
+                  "key": {
                     "symbol": "cycle_start_time"
                   },
                   "val": {
                     "u64": 0
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 691200
                   }
                 },
                 {
@@ -1940,6 +1995,14 @@
                   },
                   "val": {
                     "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {
@@ -2330,10 +2393,29 @@
                 },
                 {
                   "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
+                  }
+                },
+                {
+                  "key": {
                     "symbol": "cycle_start_time"
                   },
                   "val": {
                     "u64": 0
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 691200
                   }
                 },
                 {
@@ -2366,6 +2448,14 @@
                   },
                   "val": {
                     "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {
@@ -2546,7 +2636,7 @@
                     "symbol": "current_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 691201
                   }
                 },
                 {
@@ -2554,7 +2644,18 @@
                     "symbol": "cycle_end_time"
                   },
                   "val": {
-                    "u64": 604800
+                    "u64": 1296001
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
                   }
                 },
                 {
@@ -2562,7 +2663,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 691201
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 1382401
                   }
                 },
                 {
@@ -2595,6 +2704,14 @@
                   },
                   "val": {
                     "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {
@@ -2972,7 +3089,7 @@
                     "symbol": "current_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 691201
                   }
                 },
                 {
@@ -2980,7 +3097,18 @@
                     "symbol": "cycle_end_time"
                   },
                   "val": {
-                    "u64": 604800
+                    "u64": 1296001
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
                   }
                 },
                 {
@@ -2988,7 +3116,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 691201
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 1382401
                   }
                 },
                 {
@@ -3021,6 +3157,14 @@
                   },
                   "val": {
                     "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {
@@ -3201,7 +3345,7 @@
                     "symbol": "current_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 1382402
                   }
                 },
                 {
@@ -3209,7 +3353,18 @@
                     "symbol": "cycle_end_time"
                   },
                   "val": {
-                    "u64": 604800
+                    "u64": 1987202
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
                   }
                 },
                 {
@@ -3217,7 +3372,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 1382402
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 2073602
                   }
                 },
                 {
@@ -3250,6 +3413,14 @@
                   },
                   "val": {
                     "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {
@@ -3627,7 +3798,7 @@
                     "symbol": "current_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 1382402
                   }
                 },
                 {
@@ -3635,7 +3806,18 @@
                     "symbol": "cycle_end_time"
                   },
                   "val": {
-                    "u64": 604800
+                    "u64": 1987202
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
                   }
                 },
                 {
@@ -3643,7 +3825,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 1382402
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 2073602
                   }
                 },
                 {
@@ -3676,6 +3866,14 @@
                   },
                   "val": {
                     "bool": true
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {
@@ -3877,7 +4075,7 @@
                     "symbol": "current_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 2073603
                   }
                 },
                 {
@@ -3885,7 +4083,18 @@
                     "symbol": "cycle_end_time"
                   },
                   "val": {
-                    "u64": 604800
+                    "u64": 1987202
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "cycle_penalty_pool"
+                  },
+                  "val": {
+                    "i128": {
+                      "hi": 0,
+                      "lo": 0
+                    }
                   }
                 },
                 {
@@ -3893,7 +4102,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 1382402
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period_end_time"
+                  },
+                  "val": {
+                    "u64": 2073602
                   }
                 },
                 {
@@ -3925,7 +4142,15 @@
                     "symbol": "is_cycle_active"
                   },
                   "val": {
-                    "bool": true
+                    "bool": false
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "is_in_grace_period"
+                  },
+                  "val": {
+                    "bool": false
                   }
                 },
                 {

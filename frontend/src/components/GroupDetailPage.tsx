@@ -1,39 +1,48 @@
 // Issue #27: Create group detail page with tabs
 // Complexity: Medium (150 pts)
-// Status: Placeholder
+// Status: Enhanced with real member data integration and invitation system
 
 import React, { useState } from 'react'
 import { ContributionForm } from './ContributionForm'
-import { EmptyMemberState } from './EmptyMemberState'
 import { MemberList } from './MemberList'
 import { TransactionHistory } from './TransactionHistory'
+import InviteModal from './InviteModal'
+import { useGroupDetail, useGroupMembers } from '../hooks/useContractData'
 
 type TabKey = 'overview' | 'members' | 'history' | 'settings'
 
-interface Member {
-  id: string
-  address: string
-}
-
 interface GroupDetailPageProps {
   groupId: string
-  members?: Member[]
+  groupName?: string
   onShareLink?: () => void
   onCopyLink?: () => void
 }
 
 export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
   groupId,
-  members = [],
+  groupName: propGroupName,
   onShareLink,
   onCopyLink,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
 
-  // TODO: Fetch group details from smart contract
-  // TODO: Fetch member list and transaction history
+  // Fetch group details from smart contract
+  const { data: groupDetail, isLoading: isLoadingDetail } = useGroupDetail(groupId)
+  const { data: members, isLoading: isLoadingMembers } = useGroupMembers(groupId)
+
+  // Use fetched data or fallback to props
+  const groupName = groupDetail?.name || propGroupName || 'Loading...'
+  const groupStatus = groupDetail?.status || 'active'
+  const memberCount = members?.length || 0
+  const maxMembers = groupDetail?.maxMembers || 10
+  const cycleLength = groupDetail?.cycleLength || 30
+  const contributionAmount = groupDetail?.contributionAmount || 500
+  const totalCollected = groupDetail?.totalCollected || 0
+  const nextPayoutDate = groupDetail?.nextPayoutDate || 'TBD'
 
   const handleShareLink = () => {
+    setIsInviteModalOpen(true)
     if (onShareLink) {
       onShareLink()
     }
@@ -51,34 +60,71 @@ export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-slate-100">
-              Market Women Ajo
+              {groupName}
             </h2>
             <p className="text-gray-600 dark:text-slate-400">Group ID: {groupId}</p>
           </div>
-          <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 dark:bg-emerald-900/40 text-green-800 dark:text-emerald-300">
-            Active
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleShareLink}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Invite Members
+            </button>
+            <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 dark:bg-emerald-900/40 text-green-800 dark:text-emerald-300">
+              {isLoadingDetail ? 'Loading...' : groupStatus.charAt(0).toUpperCase() + groupStatus.slice(1)}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
           <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded border border-gray-100 dark:border-slate-600">
             <p className="text-sm text-gray-600 dark:text-slate-400">Members</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">8/10</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+              {isLoadingMembers ? '...' : `${memberCount}/${maxMembers}`}
+            </p>
           </div>
           <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded border border-gray-100 dark:border-slate-600">
             <p className="text-sm text-gray-600 dark:text-slate-400">Cycle Length</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">30 days</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+              {isLoadingDetail ? '...' : `${cycleLength} days`}
+            </p>
           </div>
           <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded border border-gray-100 dark:border-slate-600">
             <p className="text-sm text-gray-600 dark:text-slate-400">Contribution</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">$500</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+              {isLoadingDetail ? '...' : `$${contributionAmount}`}
+            </p>
           </div>
           <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded border border-gray-100 dark:border-slate-600">
             <p className="text-sm text-gray-600 dark:text-slate-400">Total Collected</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">$4,000</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+              {isLoadingDetail ? '...' : `$${totalCollected}`}
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Invite Modal */}
+      <InviteModal
+        groupId={groupId}
+        groupName={groupName}
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+      />
 
       {/* Tabs */}
       <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-slate-900/50 border border-gray-100 dark:border-slate-700">
@@ -88,11 +134,10 @@ export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 px-2 border-b-2 font-semibold transition ${
-                  activeTab === tab
-                    ? 'border-blue-600 dark:border-indigo-400 text-blue-600 dark:text-indigo-400'
-                    : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
-                }`}
+                className={`py-4 px-2 border-b-2 font-semibold transition ${activeTab === tab
+                  ? 'border-blue-600 dark:border-indigo-400 text-blue-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                  }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
@@ -109,26 +154,26 @@ export const GroupDetailPage: React.FC<GroupDetailPageProps> = ({
                     Next Payout
                   </h3>
                   <p className="text-2xl font-bold text-blue-600 dark:text-indigo-400">
-                    Feb 28, 2026
+                    {isLoadingDetail ? 'Loading...' : nextPayoutDate}
                   </p>
                 </div>
-                <TransactionHistory groupId={groupId} transactions={[]} />
+                <TransactionHistory groupId={groupId} />
               </div>
-              <ContributionForm groupId={groupId} contributionAmount={500} />
+              <ContributionForm 
+                groupId={groupId} 
+                contributionAmount={contributionAmount}
+              />
             </div>
           )}
 
           {activeTab === 'members' && (
             <>
-              {members.length === 0 ? (
-                <EmptyMemberState onShareLink={handleShareLink} onCopyLink={handleCopyLink} />
-              ) : (
-                <MemberList groupId={groupId} members={members} />
-              )}
+              {/* MemberList now fetches its own data via useGroupMembers hook */}
+              <MemberList groupId={groupId} />
             </>
           )}
 
-          {activeTab === 'history' && <TransactionHistory groupId={groupId} transactions={[]} />}
+          {activeTab === 'history' && <TransactionHistory groupId={groupId} />}
 
           {activeTab === 'settings' && (
             <div className="space-y-4">

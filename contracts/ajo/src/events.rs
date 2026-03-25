@@ -68,44 +68,92 @@ pub fn emit_group_cancelled(
         .publish(topics, (creator, member_count, refund_per_member));
 }
 
-/// Emit an event when a member is invited to a group
-pub fn emit_member_invited(
-    env: &Env,
-    group_id: u64,
-    inviter: &Address,
-    invitee: &Address,
-) {
-    let topics = (symbol_short!("invited"), group_id);
-    env.events().publish(topics, (inviter, invitee));
-}
-
-/// Emit an event when an invitation is accepted
-pub fn emit_invitation_accepted(env: &Env, group_id: u64, invitee: &Address) {
-    let topics = (symbol_short!("inv_acc"), group_id);
-    env.events().publish(topics, invitee);
-}
-
-/// Emit an event when a join request is submitted
-pub fn emit_join_requested(env: &Env, group_id: u64, requester: &Address) {
-    let topics = (symbol_short!("req_join"), group_id);
-    env.events().publish(topics, requester);
-}
-
-/// Emit an event when a join request is approved
-pub fn emit_join_approved(env: &Env, group_id: u64, requester: &Address) {
-    let topics = (symbol_short!("req_app"), group_id);
-    env.events().publish(topics, requester);
-}
-
-/// Emit an event when a partial contribution is made
-pub fn emit_partial_contribution(
+/// Emit an event when a late contribution is made with penalty
+pub fn emit_late_contribution(
     env: &Env,
     group_id: u64,
     member: &Address,
     cycle: u32,
     amount: i128,
-    total_contributed: i128,
+    penalty: i128,
 ) {
-    let topics = (symbol_short!("part_cont"), group_id, cycle);
-    env.events().publish(topics, (member, amount, total_contributed));
+    let topics = (symbol_short!("late"), group_id, cycle);
+    env.events().publish(topics, (member, amount, penalty));
+}
+
+/// Emit an event when penalties are distributed with payout
+pub fn emit_penalty_distributed(
+    env: &Env,
+    group_id: u64,
+    recipient: &Address,
+    cycle: u32,
+    base_amount: i128,
+    penalty_bonus: i128,
+) {
+    let topics = (symbol_short!("pendistr"), group_id, cycle);
+    env.events()
+        .publish(topics, (recipient, base_amount, penalty_bonus));
+}
+
+/// Emit an event when a refund request is created
+pub fn emit_refund_requested(
+    env: &Env,
+    group_id: u64,
+    requester: &Address,
+    voting_deadline: u64,
+) {
+    let topics = (symbol_short!("refreq"), group_id);
+    env.events().publish(topics, (requester, voting_deadline));
+}
+
+/// Emit an event when a member votes on a refund request
+pub fn emit_refund_vote(
+    env: &Env,
+    group_id: u64,
+    voter: &Address,
+    in_favor: bool,
+) {
+    let topics = (symbol_short!("refvote"), group_id);
+    env.events().publish(topics, (voter, in_favor));
+}
+
+/// Emit an event when a refund is processed
+pub fn emit_refund_processed(
+    env: &Env,
+    group_id: u64,
+    member: &Address,
+    amount: i128,
+    reason: u32,
+) {
+    let topics = (symbol_short!("refund"), group_id);
+    env.events().publish(topics, (member, amount, reason));
+}
+
+/// Emit an event when an emergency refund is executed
+pub fn emit_emergency_refund(
+    env: &Env,
+    group_id: u64,
+    admin: &Address,
+    total_refunded: i128,
+) {
+    let topics = (symbol_short!("emrefund"), group_id);
+    env.events().publish(topics, (admin, total_refunded));
+}
+
+/// Emit an event when a member votes for the next payout recipient
+pub fn emit_payout_vote(env: &Env, group_id: u64, voter: &Address, nominee: &Address, cycle: u32) {
+    let topics = (symbol_short!("pvote"), group_id, cycle);
+    env.events().publish(topics, (voter, nominee));
+}
+
+/// Emit an event when the payout recipient for a cycle is determined
+pub fn emit_payout_order_determined(
+    env: &Env,
+    group_id: u64,
+    cycle: u32,
+    recipient: &Address,
+    strategy: u32,
+) {
+    let topics = (symbol_short!("porder"), group_id, cycle);
+    env.events().publish(topics, (recipient, strategy));
 }
