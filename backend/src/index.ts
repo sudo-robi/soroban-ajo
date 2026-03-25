@@ -1,10 +1,6 @@
-import express from 'express'
-import cors from 'cors'
-import helmet from 'helmet'
 import dotenv from 'dotenv'
 import { errorHandler } from './middleware/errorHandler'
 import { requestLogger } from './middleware/requestLogger'
-// import { setupSwagger } from './middleware/swagger'
 import { logger } from './utils/logger'
 import { groupsRouter } from './routes/groups'
 import { healthRouter } from './routes/health'
@@ -19,21 +15,26 @@ import { startJobProcessors } from './jobs'
 
 dotenv.config()
 
-const app = express()
 const PORT = process.env.PORT || 3001
+
 // Middleware
 app.use(helmet())
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}))
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL
+      ? [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173']
+      : ['http://localhost:3000', 'http://localhost:5173'],
+    credentials: true,
+  })
+)
 app.use(requestLogger)
+app.set('trust proxy', 1)
+app.use(createDdosProtector())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-app.use('/api', apiLimiter)
-app.set('trust proxy', 1)
+app.use('/api', createIpLimiter('global'))
 
-// API Documentation
+// API Documentation - Swagger UI
 setupSwagger(app)
 
 // Routes
@@ -55,5 +56,26 @@ app.listen(PORT, () => {
   logger.info(`Server started on port ${PORT}`, { env: process.env.NODE_ENV || 'development' })
   logger.info('Job queue system initialized and ready')
 })
+
+// Graceful shutdown
+const shutdown = async () => {
+  logger.info('Shutting down gracefully...')
+  if (server && server.close) {
+    server.close((err?: Error) => {
+      if (err) {
+        logger.error('Error closing server', { error: err.message })
+      } else {
+        logger.info('HTTP server closed')
+      }
+    })
+  }
+
+  stopScheduler()
+  await stopWorkers()
+  setTimeout(() => process.exit(0), 100)
+}
+
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)
 
 export default app

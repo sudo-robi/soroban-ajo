@@ -64,31 +64,85 @@ pub enum AjoError {
 
     /// The contract has already been initialized.
     AlreadyInitialized = 20,
+    
+    /// The contract is currently paused and cannot execute this operation.
+    ContractPaused = 21,
+    
+    /// Only the admin can pause the contract.
+    UnauthorizedPause = 22,
+    
+    /// Only the admin can unpause the contract.
+    UnauthorizedUnpause = 23,
 
-    /// One of the metadata fields exceeds the length limit.
-    MetadataTooLong = 21,
+    /// Contribution is too late - grace period has expired.
+    GracePeriodExpired = 24,
 
-    /// Invitation not found.
-    InvitationNotFound = 22,
+    /// Invalid grace period duration.
+    InvalidGracePeriod = 25,
 
-    /// Invitation has expired.
-    InvitationExpired = 23,
+    /// Invalid penalty rate (must be 0-100).
+    InvalidPenaltyRate = 26,
 
-    /// Invitation has already been accepted.
-    InvitationAlreadyAccepted = 24,
+    /// Metadata field exceeds maximum length.
+    MetadataTooLong = 27,
 
-    /// Duplicate invitation exists.
-    DuplicateInvitation = 25,
+    /// Cannot cancel group after first payout.
+    CannotCancelAfterPayout = 28,
 
-    /// Join request not found.
-    JoinRequestNotFound = 26,
+    /// Only the group creator can cancel the group.
+    OnlyCreatorCanCancel = 29,
 
-    /// Duplicate join request exists.
-    DuplicateJoinRequest = 27,
+    /// Refund request already exists for this group.
+    RefundRequestExists = 30,
 
-    /// Join request is not pending.
-    JoinRequestNotPending = 28,
+    /// No active refund request for this group.
+    NoRefundRequest = 31,
 
-    /// Group access is restricted (invite-only or approval required).
-    GroupAccessRestricted = 29,
+    /// Member has already voted on this refund request.
+    AlreadyVoted = 32,
+
+    /// Voting period has not ended yet.
+    VotingPeriodActive = 33,
+
+    /// Voting period has ended.
+    VotingPeriodEnded = 34,
+
+    /// Refund request was not approved.
+    RefundNotApproved = 35,
+
+    /// Refund has already been executed.
+    RefundAlreadyExecuted = 36,
+
+    /// Cannot request refund before cycle deadline.
+    CycleNotExpired = 37,
+
+    /// Token contract address is invalid or not found.
+    InvalidTokenAddress = 38,
+
+    /// Contract has insufficient token balance for payout.
+    InsufficientContractBalance = 39,
+
+    /// Token allowance is insufficient for transfer.
+    InsufficientAllowance = 40,
+
+    /// Insurance claim not found or invalid.
+    InvalidClaim = 41,
+
+    /// Claim has already been processed (approved or rejected).
+    ClaimAlreadyProcessed = 42,
+
+    /// Insurance pool has insufficient balance for payout.
+    InsufficientPoolBalance = 43,
+
+    /// Insurance pool for token not found.
+    PoolNotFound = 44,
+
+    /// Invalid or unsupported payout ordering strategy.
+    InvalidStrategy = 45,
+
+    /// Voting is not open for this group's payout strategy.
+    VotingNotOpen = 46,
+
+    /// No eligible members remain for payout selection (all have been paid).
+    NoEligibleMembers = 47,
 }

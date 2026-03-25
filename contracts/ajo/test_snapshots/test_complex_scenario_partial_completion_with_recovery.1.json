@@ -27,6 +27,12 @@
                 },
                 {
                   "u32": 3
+                },
+                {
+                  "u64": 86400
+                },
+                {
+                  "u32": 5
                 }
               ]
             }
@@ -288,7 +294,7 @@
   "ledger": {
     "protocol_version": 21,
     "sequence_number": 0,
-    "timestamp": 0,
+    "timestamp": 2073603,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
     "min_persistent_entry_ttl": 4096,
@@ -893,7 +899,15 @@
                         "symbol": "cycle_start_time"
                       },
                       "val": {
-                        "u64": 0
+                        "u64": 1382402
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "grace_period"
+                      },
+                      "val": {
+                        "u64": 86400
                       }
                     },
                     {
@@ -944,6 +958,22 @@
                       },
                       "val": {
                         "u32": 3
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "penalty_rate"
+                      },
+                      "val": {
+                        "u32": 5
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "state"
+                      },
+                      "val": {
+                        "u32": 0
                       }
                     }
                   ]
@@ -1603,6 +1633,12 @@
                 },
                 {
                   "u32": 3
+                },
+                {
+                  "u64": 86400
+                },
+                {
+                  "u32": 5
                 }
               ]
             }
@@ -2268,7 +2304,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 691201
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period"
+                  },
+                  "val": {
+                    "u64": 86400
                   }
                 },
                 {
@@ -2319,6 +2363,22 @@
                   },
                   "val": {
                     "u32": 1
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "penalty_rate"
+                  },
+                  "val": {
+                    "u32": 5
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "state"
+                  },
+                  "val": {
+                    "u32": 0
                   }
                 }
               ]
@@ -2887,7 +2947,15 @@
                     "symbol": "cycle_start_time"
                   },
                   "val": {
-                    "u64": 0
+                    "u64": 1382402
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "grace_period"
+                  },
+                  "val": {
+                    "u64": 86400
                   }
                 },
                 {
@@ -2938,6 +3006,22 @@
                   },
                   "val": {
                     "u32": 2
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "penalty_rate"
+                  },
+                  "val": {
+                    "u32": 5
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "state"
+                  },
+                  "val": {
+                    "u32": 0
                   }
                 }
               ]

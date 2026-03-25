@@ -1,84 +1,65 @@
 use soroban_sdk::{contracttype, Address, Vec};
 
-/// Represents the access type for a group.
-/// Controls how new members can join the group.
+/// Strategy for determining payout order in a group.
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum GroupAccessType {
-    /// Members can join freely without any restrictions (default).
-    Open,
-    /// Members can only join via an invitation.
-    InviteOnly,
-    /// Members must submit a join request that requires approval from the creator.
-    ApprovalRequired,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PayoutOrderingStrategy {
+    /// Members receive payouts in the order they joined (default).
+    Sequential = 0,
+    /// Verifiable random selection using ledger sequence and timestamp as entropy.
+    Random = 1,
+    /// Members vote each cycle; the nominee with the most votes receives payout.
+    VotingBased = 2,
+    /// Member with the best on-time contribution history is selected.
+    ContributionBased = 3,
+    /// Members vote on declared need; most-voted member receives payout.
+    NeedBased = 4,
 }
 
-/// Represents an invitation to join a group.
+/// A single vote cast for the next payout recipient.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GroupInvitation {
-    /// The group this invitation is for.
+pub struct PayoutVote {
+    /// The group this vote belongs to.
     pub group_id: u64,
-    /// Address of the person being invited.
-    pub invitee: Address,
-    /// Address of the person who sent the invitation.
-    pub inviter: Address,
-    /// Unix timestamp (seconds) when the invitation was created.
-    pub created_at: u64,
-    /// Unix timestamp (seconds) when the invitation expires.
-    pub expires_at: u64,
-    /// Whether the invitation has been accepted.
-    pub accepted: bool,
-}
-
-/// Status of a join request.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RequestStatus {
-    /// Request is pending approval.
-    Pending,
-    /// Request has been approved.
-    Approved,
-    /// Request has been rejected.
-    Rejected,
-}
-
-/// Represents a request to join a group.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct JoinRequest {
-    /// The group this request is for.
-    pub group_id: u64,
-    /// Address of the person requesting to join.
-    pub requester: Address,
-    /// Unix timestamp (seconds) when the request was created.
-    pub created_at: u64,
-    /// Current status of the request.
-    pub status: RequestStatus,
-}
-
-/// Default invitation expiry duration (7 days in seconds).
-pub const DEFAULT_INVITATION_EXPIRY: u64 = 604800;
-
-/// Tracks partial contributions for a member in a specific cycle.
-/// Allows members to contribute in multiple smaller payments.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PartialContribution {
-    /// Address of the member making the contribution.
-    pub member: Address,
-    /// The group this contribution belongs to.
-    pub group_id: u64,
-    /// The cycle number this contribution is for.
+    /// The cycle number this vote applies to.
     pub cycle: u32,
-    /// Total amount contributed so far in this cycle.
-    pub total_contributed: i128,
-    /// Required contribution amount for this cycle.
-    pub required_amount: i128,
-    /// Whether the full contribution has been completed.
-    pub is_complete: bool,
-    /// Number of partial payments made.
-    pub payment_count: u32,
+    /// Address of the member casting the vote.
+    pub voter: Address,
+    /// Address nominated to receive the next payout.
+    pub nominee: Address,
+    /// Unix timestamp when the vote was cast.
+    pub timestamp: u64,
+}
+
+/// Records the determined payout order for a specific cycle.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PayoutOrder {
+    /// The group this payout order belongs to.
+    pub group_id: u64,
+    /// The cycle number this order applies to.
+    pub cycle: u32,
+    /// The address that will receive the payout.
+    pub recipient: Address,
+    /// The strategy used to select this recipient.
+    pub selection_method: PayoutOrderingStrategy,
+    /// Unix timestamp when the order was determined.
+    pub determined_at: u64,
+}
+
+/// State of a group in its lifecycle.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum GroupState {
+    /// Group is active and accepting contributions.
+    Active = 0,
+    /// Group has been cancelled and refunds are being processed.
+    Cancelled = 1,
+    /// Group has completed all cycles successfully.
+    Complete = 2,
 }
 
 /// Represents an Ajo group configuration and state.
@@ -86,38 +67,39 @@ pub struct PartialContribution {
 /// An Ajo (also known as Esusu or Tontine) is a rotating savings group
 /// where members contribute a fixed amount each cycle, and one member
 /// receives the full pool each round until everyone has been paid out.
+///
+/// Fields are ordered by size for optimal memory alignment:
+/// - 16 bytes: i128
+/// - 32 bytes: Address
+/// - Variable: Vec<Address>
+/// - 8 bytes: u64 fields
+/// - 4 bytes: u32 fields
+/// - 1 byte: bool
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Group {
-    /// Unique group identifier, auto-incremented from storage counter
-    pub id: u64,
+    /// Fixed contribution amount each member must pay per cycle, denominated in stroops.
+    /// 1 XLM = 10,000,000 stroops.
+    pub contribution_amount: i128,
 
     /// Address of the member who created the group.
     /// Automatically added as the first member on creation.
     pub creator: Address,
 
-    /// Fixed contribution amount each member must pay per cycle, denominated in stroops.
-    /// 1 XLM = 10,000,000 stroops.
-    pub contribution_amount: i128,
-
-    /// Duration of each cycle in seconds.
-    /// When a cycle ends, the next payout can be triggered.
-    pub cycle_duration: u64,
-
-    /// Maximum number of members allowed in the group.
-    /// Must be between 2 and 100 (inclusive).
-    pub max_members: u32,
+    /// Token contract address for contributions and payouts.
+    /// Supports Stellar Asset Contract (SAC) tokens including XLM, USDC, and custom tokens.
+    pub token_address: Address,
 
     /// Ordered list of member addresses.
     /// Members receive payouts in the order they appear in this list.
     pub members: Vec<Address>,
 
-    /// Current cycle number, starts at 1 and increments after each payout.
-    pub current_cycle: u32,
+    /// Unique group identifier, auto-incremented from storage counter
+    pub id: u64,
 
-    /// Zero-based index into `members` indicating who receives the next payout.
-    /// When `payout_index == members.len()`, the group is complete.
-    pub payout_index: u32,
+    /// Duration of each cycle in seconds.
+    /// When a cycle ends, the next payout can be triggered.
+    pub cycle_duration: u64,
 
     /// Unix timestamp (seconds) when the group was created.
     pub created_at: u64,
@@ -126,66 +108,45 @@ pub struct Group {
     /// Used together with `cycle_duration` to calculate when the cycle ends.
     pub cycle_start_time: u64,
 
+    /// Maximum number of members allowed in the group.
+    /// Must be between 2 and 100 (inclusive).
+    pub max_members: u32,
+
+    /// Current cycle number, starts at 1 and increments after each payout.
+    pub current_cycle: u32,
+
+    /// Zero-based index into `members` indicating who receives the next payout.
+    /// When `payout_index == members.len()`, the group is complete.
+    pub payout_index: u32,
+
     /// Whether the group has completed all payout cycles.
     /// Once `true`, no further contributions or payouts are accepted.
     pub is_complete: bool,
 
-    /// Access type controlling how new members can join the group.
-    /// Defaults to Open for backward compatibility.
-    pub access_type: GroupAccessType,
-}
+    /// Grace period duration in seconds after cycle ends.
+    /// Members can still contribute during this period but will incur penalties.
+    /// Default: 86400 seconds (24 hours)
+    pub grace_period: u64,
 
-/// Records a single member's contribution for a specific cycle.
-///
-/// Written to persistent storage when a member calls `contribute()`.
-/// Used to prevent double-contributions and to verify cycle completion
-/// before executing a payout.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContributionRecord {
-    /// Address of the member who made (or is expected to make) the contribution.
-    pub member: Address,
+    /// Penalty rate as a percentage (0-100) applied to late contributions.
+    /// For example, 5 means 5% penalty on the contribution amount.
+    /// Penalties are added to the group pool for the next recipient.
+    pub penalty_rate: u32,
 
-    /// The group this contribution belongs to.
-    pub group_id: u64,
+    /// Current state of the group (Active, Cancelled, or Complete).
+    pub state: GroupState,
 
-    /// The cycle number this contribution is for.
-    pub cycle: u32,
+    /// Insurance configuration for the group.
+    pub insurance_config: InsuranceConfig,
 
-    /// Whether the member has paid their contribution for this cycle.
-    /// `true` means the contribution has been recorded; `false` means pending.
-    pub has_paid: bool,
-
-    /// Unix timestamp (seconds) when the contribution was recorded.
-    pub timestamp: u64,
-}
-
-/// Records that a member has received their payout for a given cycle.
-///
-/// Written to persistent storage after `execute_payout()` succeeds.
-/// Can be used for audit trails and to prevent duplicate payouts.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PayoutRecord {
-    /// Address of the member who received the payout.
-    pub member: Address,
-
-    /// The group this payout belongs to.
-    pub group_id: u64,
-
-    /// The cycle number in which this payout was made.
-    pub cycle: u32,
-
-    /// Total payout amount in stroops (`contribution_amount × member_count`).
-    pub amount: i128,
-
-    /// Unix timestamp (seconds) when the payout was executed.
-    pub timestamp: u64,
+    /// Strategy used to determine payout order each cycle.
+    /// Defaults to `Sequential` (join order) when created via `create_group`.
+    pub payout_strategy: PayoutOrderingStrategy,
 }
 
 /// Comprehensive snapshot of a group's current state.
 ///
-/// Returned by [`AjoContract::get_group_status`] to give callers a single
+/// Returned by [`crate::contract::AjoContract::get_group_status`] to give callers a single
 /// consolidated view without having to make multiple queries.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -228,6 +189,15 @@ pub struct GroupStatus {
 
     /// The ledger timestamp at the moment this status was queried.
     pub current_time: u64,
+
+    /// Total penalties collected in the current cycle (in stroops).
+    pub cycle_penalty_pool: i128,
+
+    /// Whether the cycle is in grace period (after cycle end but before grace period expires).
+    pub is_in_grace_period: bool,
+
+    /// Unix timestamp when grace period ends.
+    pub grace_period_end_time: u64,
 }
 
 /// Optional metadata for a group.
@@ -245,3 +215,180 @@ pub struct GroupMetadata {
 pub const MAX_NAME_LENGTH: u32 = 50;
 pub const MAX_DESCRIPTION_LENGTH: u32 = 250;
 pub const MAX_RULES_LENGTH: u32 = 1000;
+
+/// Tracks a refund request initiated by a member.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RefundRequest {
+    /// The group this refund request is for.
+    pub group_id: u64,
+
+    /// Address of the member who initiated the request.
+    pub requester: Address,
+
+    /// Unix timestamp when the request was created.
+    pub created_at: u64,
+
+    /// Unix timestamp when voting ends.
+    pub voting_deadline: u64,
+
+    /// Number of votes in favor of the refund.
+    pub votes_for: u32,
+
+    /// Number of votes against the refund.
+    pub votes_against: u32,
+
+    /// Whether the request has been executed.
+    pub executed: bool,
+
+    /// Whether the request was approved.
+    pub approved: bool,
+}
+
+/// Records a member's vote on a refund request.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RefundVote {
+    /// The group this vote is for.
+    pub group_id: u64,
+
+    /// Address of the member who voted.
+    pub voter: Address,
+
+    /// Whether the vote is in favor (true) or against (false).
+    pub in_favor: bool,
+
+    /// Unix timestamp when the vote was cast.
+    pub timestamp: u64,
+}
+
+/// Penalty statistics for a member within a group.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MemberPenaltyRecord {
+    pub member: Address,
+    pub group_id: u64,
+    pub late_count: u32,
+    pub on_time_count: u32,
+    pub total_penalties: i128,
+    pub reliability_score: u32,
+}
+
+/// Records a refund transaction.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RefundRecord {
+    /// The group this refund is for.
+    pub group_id: u64,
+
+    /// Address of the member receiving the refund.
+    pub member: Address,
+
+    /// Amount refunded in stroops.
+    pub amount: i128,
+
+    /// Unix timestamp when the refund was processed.
+    pub timestamp: u64,
+
+    /// Reason for the refund (cancellation, emergency, vote).
+    pub reason: RefundReason,
+}
+
+/// Reason for a refund.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum RefundReason {
+    /// Group was cancelled by creator before first payout.
+    CreatorCancellation = 0,
+    /// Refund approved by member vote.
+    MemberVote = 1,
+    /// Emergency refund by admin.
+    EmergencyRefund = 2,
+}
+
+/// Voting period duration in seconds (7 days).
+pub const VOTING_PERIOD: u64 = 604_800;
+
+/// Minimum approval percentage required for refund (51%).
+pub const REFUND_APPROVAL_THRESHOLD: u32 = 51;
+
+/// Detailed record of a member's contribution for a specific cycle.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContributionRecord {
+    pub group_id: u64,
+    pub cycle: u32,
+    pub member: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+    pub is_late: bool,
+    pub penalty_amount: i128,
+}
+
+
+/// Records that a member has received their payout for a given cycle.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PayoutRecord {
+    pub group_id: u64,
+    pub member: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+}
+
+/// Insurance configuration for a group.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InsuranceConfig {
+    /// Insurance rate in basis points (1 bp = 0.01%).
+    /// A value of 100 means 1% of each contribution goes to the insurance pool.
+    pub rate_bps: u32,
+    /// Whether insurance is enabled for this group.
+    pub is_enabled: bool,
+}
+
+/// Status of an insurance claim.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum ClaimStatus {
+    Pending = 0,
+    Approved = 1,
+    Rejected = 2,
+    Paid = 3,
+}
+
+/// Information about an insurance claim filed for non-payment.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InsuranceClaim {
+    /// The unique identifier for the claim.
+    pub id: u64,
+    /// The group the claim belongs to.
+    pub group_id: u64,
+    /// The cycle in which the default occurred.
+    pub cycle: u32,
+    /// The member who defaulted (did not pay).
+    pub defaulter: Address,
+    /// The member who is filing the claim (usually the cycle's recipient).
+    pub claimant: Address,
+    /// The amount being claimed.
+    pub amount: i128,
+    /// The current status of the claim.
+    pub status: ClaimStatus,
+    /// Unix timestamp when the claim was filed.
+    pub created_at: u64,
+}
+
+/// Insurance fund balance tracking.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InsurancePool {
+    /// Total balance available in the insurance pool for a specific token.
+    pub balance: i128,
+    /// Total amount paid out from the pool.
+    pub total_payouts: i128,
+    /// Total amount of claims filed.
+    pub pending_claims_count: u32,
+}

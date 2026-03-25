@@ -1,44 +1,50 @@
-import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { Express } from 'express';
-
-const options: swaggerJsdoc.Options = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Ajo API',
-      version: '0.1.0',
-      description: 'Backend API for Ajo - Decentralized Savings Groups on Stellar',
-      contact: {
-        name: 'Ajo Team',
-        url: 'https://github.com/Christopherdominic/soroban-ajo',
-      },
-    },
-    servers: [
-      {
-        url: 'http://localhost:3001',
-        description: 'Development server',
-      },
-    ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-      },
-    },
-  },
-  apis: ['./src/routes/*.ts', './src/controllers/*.ts'],
-};
-
-const swaggerSpec = swaggerJsdoc(options);
+import { Express, Request, Response } from 'express';
+import { openApiSpec } from './docs/openapi-spec';
 
 export const setupSwagger = (app: Express): void => {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  app.get('/api-docs.json', (req, res) => {
+  // Serve Swagger UI
+  app.use(
+    '/api-docs',
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec, {
+      customCss: `
+        .swagger-ui .topbar { display: none }
+        .swagger-ui .info .title { font-size: 2em; margin: 20px 0; }
+        .swagger-ui .scheme-container { background: #fafafa; }
+        .swagger-ui .btn { border-radius: 4px; }
+      `,
+      customSiteTitle: 'Ajo API Documentation',
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayOperationId: true,
+        filter: true,
+        showExtensions: true,
+        deepLinking: true,
+      },
+    })
+  );
+
+  // Serve OpenAPI spec as JSON
+  app.get('/api-docs.json', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
+    res.json(openApiSpec);
+  });
+
+  // API documentation info endpoint
+  app.get('/api-docs/info', (_req: Request, res: Response) => {
+    res.json({
+      title: 'Ajo API Documentation',
+      version: '1.0.0',
+      description: 'Decentralized Savings Groups API',
+      endpoints: {
+        interactive: '/api-docs',
+        openapi: '/api-docs.json',
+      },
+      resources: {
+        github: 'https://github.com/Christopherdominic/soroban-ajo',
+        support: 'support@ajo.app',
+      },
+    });
   });
 };

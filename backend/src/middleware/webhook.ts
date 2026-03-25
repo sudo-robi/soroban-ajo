@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express'
 import * as crypto from 'crypto'
 import { webhookService, WebhookEventType } from '../services/webhookService'
 import { AppError } from './errorHandler'
+import { createModuleLogger } from '../utils/logger'
+
+const logger = createModuleLogger('WebhookMiddleware')
 
 /**
  * Middleware to trigger webhooks after successful operations
@@ -10,11 +13,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook after group creation
    */
-  afterGroupCreated: async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  afterGroupCreated: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const groupData = res.locals.groupData || req.body
 
@@ -38,7 +37,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (group.created):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.GROUP_CREATED })
       // Don't fail the request if webhook fails
       next()
     }
@@ -47,11 +46,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook after member joins group
    */
-  afterMemberJoined: async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  afterMemberJoined: async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const { id: groupId } = req.params
       const { publicKey } = req.body
@@ -72,7 +67,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (member.joined):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.MEMBER_JOINED })
       next()
     }
   },
@@ -80,11 +75,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook after contribution is made
    */
-  afterContribution: async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  afterContribution: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id: groupId } = req.params
       const { amount, publicKey } = req.body
@@ -109,7 +100,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (contribution.made):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.CONTRIBUTION_MADE })
       next()
     }
   },
@@ -117,7 +108,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook after payout is completed
    */
-  afterPayout: async (req: Request, res: Response, next: NextFunction) => {
+  afterPayout: async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const payoutData = res.locals.payoutData
 
@@ -141,7 +132,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (payout.completed):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.PAYOUT_COMPLETED })
       next()
     }
   },
@@ -149,11 +140,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook when group is completed
    */
-  afterGroupCompleted: async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  afterGroupCompleted: async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const groupData = res.locals.groupData
 
@@ -174,7 +161,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (group.completed):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.GROUP_COMPLETED })
       next()
     }
   },
@@ -182,11 +169,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook when cycle starts
    */
-  afterCycleStarted: async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  afterCycleStarted: async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const cycleData = res.locals.cycleData
 
@@ -207,7 +190,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (cycle.started):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.CYCLE_STARTED })
       next()
     }
   },
@@ -215,7 +198,7 @@ export const webhookMiddleware = {
   /**
    * Trigger webhook when cycle ends
    */
-  afterCycleEnded: async (req: Request, res: Response, next: NextFunction) => {
+  afterCycleEnded: async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const cycleData = res.locals.cycleData
 
@@ -235,7 +218,7 @@ export const webhookMiddleware = {
 
       next()
     } catch (error) {
-      console.error('Webhook trigger error (cycle.ended):', error)
+      logger.error('Webhook trigger failed', { error, event: WebhookEventType.CYCLE_ENDED })
       next()
     }
   },
@@ -244,33 +227,25 @@ export const webhookMiddleware = {
 /**
  * Middleware to verify incoming webhook signatures
  */
-export const verifyWebhookSignature = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const verifyWebhookSignature = (req: Request, _res: Response, next: NextFunction) => {
   try {
     const signature = req.headers['x-webhook-signature'] as string
     const webhookId = req.headers['x-webhook-id'] as string
 
     if (!signature || !webhookId) {
-      throw new AppError('Missing webhook signature or ID', 401)
+      throw new AppError('Missing webhook signature or ID', 'UNAUTHORIZED', 401)
     }
 
     const endpoint = webhookService.getEndpoint(webhookId)
     if (!endpoint) {
-      throw new AppError('Invalid webhook endpoint', 401)
+      throw new AppError('Invalid webhook endpoint', 'UNAUTHORIZED', 401)
     }
 
     const payload = req.body
-    const isValid = webhookService.verifySignature(
-      payload,
-      signature,
-      endpoint.secret
-    )
+    const isValid = webhookService.verifySignature(payload, signature, endpoint.secret)
 
     if (!isValid) {
-      throw new AppError('Invalid webhook signature', 401)
+      throw new AppError('Invalid webhook signature', 'UNAUTHORIZED', 401)
     }
 
     next()
@@ -286,7 +261,7 @@ export const webhookController = {
   /**
    * List all webhook endpoints
    */
-  listEndpoints: (req: Request, res: Response) => {
+  listEndpoints: (_req: Request, res: Response) => {
     const endpoints = webhookService.getEndpoints()
     res.json({
       success: true,
@@ -308,7 +283,7 @@ export const webhookController = {
       const { url, events, secret, headers } = req.body
 
       if (!url || !Array.isArray(events)) {
-        throw new AppError('Invalid webhook configuration', 400)
+        throw new AppError('Invalid webhook configuration', 'BAD_REQUEST', 400)
       }
 
       const id = webhookService.registerEndpoint({
@@ -339,7 +314,7 @@ export const webhookController = {
       const success = webhookService.updateEndpoint(id, updates)
 
       if (!success) {
-        throw new AppError('Webhook endpoint not found', 404)
+        throw new AppError('Webhook endpoint not found', 'NOT_FOUND', 404)
       }
 
       res.json({
@@ -361,7 +336,7 @@ export const webhookController = {
       const success = webhookService.unregisterEndpoint(id)
 
       if (!success) {
-        throw new AppError('Webhook endpoint not found', 404)
+        throw new AppError('Webhook endpoint not found', 'NOT_FOUND', 404)
       }
 
       res.json({
@@ -376,7 +351,7 @@ export const webhookController = {
   /**
    * Get webhook statistics
    */
-  getStats: (req: Request, res: Response) => {
+  getStats: (_req: Request, res: Response) => {
     const stats = webhookService.getStats()
     res.json({
       success: true,
@@ -393,7 +368,7 @@ export const webhookController = {
 
       const endpoint = webhookService.getEndpoint(id)
       if (!endpoint) {
-        throw new AppError('Webhook endpoint not found', 404)
+        throw new AppError('Webhook endpoint not found', 'NOT_FOUND', 404)
       }
 
       // Trigger a test event
