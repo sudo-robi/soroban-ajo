@@ -71,9 +71,9 @@ export const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ onSuccess 
   const errorSummaryRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const groupNameRef = useRef<HTMLInputElement>(null)
-  
+
   const loading = createGroupMutation.isPending
-  
+
   const hasErrors = Object.keys(errors).length > 0
 
   const isDirty = Object.values(formData).some((value) => {
@@ -86,7 +86,7 @@ export const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ onSuccess 
     data: formData,
     onRestore: (draft) => setFormData(draft),
     enabled: isDirty,
-  });
+  })
 
   // Focus on error summary when errors occur after submission
   useEffect(() => {
@@ -254,7 +254,8 @@ export const GroupCreationForm: React.FC<GroupCreationFormProps> = ({ onSuccess 
       {hasErrors && submitted && (
         <div ref={errorSummaryRef} role="alert" aria-live="assertive" className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg" tabIndex={-1}>
           <p className="text-sm font-medium text-red-800">
-            Please fix {Object.keys(errors).length} error{Object.keys(errors).length > 1 ? 's' : ''} before submitting
+            Please fix {Object.keys(errors).length} error{Object.keys(errors).length > 1 ? 's' : ''}{' '}
+            before submitting
           </p>
         </div>
       )}
