@@ -97,7 +97,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 <WalletConnector />
               </div>
             </div>
-          </div>
 
           {/* Navigation */}
           <nav
@@ -263,11 +262,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               </ul>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-gray-200 dark:border-dark-border text-center text-sm text-gray-600 dark:text-slate-400">
-            <p>&copy; {new Date().getFullYear()} Ajo. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   )
 }
