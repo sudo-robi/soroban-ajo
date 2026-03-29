@@ -178,6 +178,7 @@ pub fn emit_reminder_triggered(
     let topics = (symbol_short!("remind"), group_id);
     env.events()
         .publish(topics, (member, reminder_type, deadline));
+}
 /// Emit an event when a group milestone is achieved
 pub fn emit_milestone_achieved(
     env: &Env,
@@ -198,4 +199,68 @@ pub fn emit_achievement_earned(
 ) {
     let topics = (symbol_short!("achieve"), group_id);
     env.events().publish(topics, (member, achievement));
+}
+
+// ── Multi-token events ────────────────────────────────────────────────────
+
+/// Emit an event when a multi-token group is created
+pub fn emit_multi_token_group_created(
+    env: &Env,
+    group_id: u64,
+    creator: &Address,
+    contribution_amount: i128,
+    token_count: u32,
+) {
+    let topics = (symbol_short!("mtcreat"), group_id);
+    env.events()
+        .publish(topics, (creator, contribution_amount, token_count));
+}
+
+/// Emit an event when a member contributes with a specific token
+pub fn emit_token_contribution(
+    env: &Env,
+    group_id: u64,
+    member: &Address,
+    token: &Address,
+    amount: i128,
+    cycle: u32,
+) {
+    let topics = (symbol_short!("tkcontr"), group_id, cycle);
+    env.events().publish(topics, (member, token, amount));
+}
+
+/// Emit an event when a multi-token payout is executed for one token
+pub fn emit_multi_token_payout(
+    env: &Env,
+    group_id: u64,
+    recipient: &Address,
+    token: &Address,
+    amount: i128,
+    cycle: u32,
+) {
+    let topics = (symbol_short!("mtpay"), group_id, cycle);
+    env.events().publish(topics, (recipient, token, amount));
+}
+
+/// Emit an event when a dispute is filed
+pub fn emit_dispute_filed(env: &Env, dispute_id: u64, group_id: u64, complainant: &Address, defendant: &Address) {
+    let topics = (symbol_short!("disfiled"), dispute_id);
+    env.events().publish(topics, (group_id, complainant, defendant));
+}
+
+/// Emit an event when a vote is cast on a dispute
+pub fn emit_dispute_vote(env: &Env, dispute_id: u64, voter: &Address, supports_action: bool) {
+    let topics = (symbol_short!("disvote"), dispute_id);
+    env.events().publish(topics, (voter, supports_action));
+}
+
+/// Emit an event when a dispute is resolved
+pub fn emit_dispute_resolved(
+    env: &Env,
+    dispute_id: u64,
+    group_id: u64,
+    resolution: crate::types::DisputeResolution,
+) {
+    let topics = (symbol_short!("disres"), dispute_id);
+    env.events().publish(topics, (group_id, resolution));
 }

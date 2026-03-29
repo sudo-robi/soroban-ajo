@@ -8,8 +8,21 @@ import { useDashboard } from '@/hooks/useDashboard'
 import { useStaggeredAnimation } from '@/hooks/useStaggeredAnimation'
 import { BentoGrid, BentoCell } from '@/components/BentoGrid'
 import { MetricCard } from '@/components/dashboard/MetricCard'
-import { GroupsGrid } from '@/components/GroupsGrid'
-import { GroupsList } from '@/components/GroupsList'
+import { SkeletonCard } from '@/components/skeletons'
+import { lazyLoad } from '@/utils/lazyLoad'
+
+const GamificationDashboard = lazyLoad(
+  () => import('@/components/GamificationDashboard').then((m) => ({ default: m.GamificationDashboard })),
+  { loading: () => <SkeletonCard /> }
+)
+const GroupsGrid = lazyLoad(
+  () => import('@/components/GroupsGrid').then((m) => ({ default: m.GroupsGrid })),
+  { loading: () => <SkeletonCard /> }
+)
+const GroupsList = lazyLoad(
+  () => import('@/components/GroupsList').then((m) => ({ default: m.GroupsList })),
+  { loading: () => <SkeletonCard /> }
+)
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -189,6 +202,9 @@ export default function DashboardPage() {
                 <Link href="/groups" className="btn-secondary px-4 py-2 text-xs rounded-xl">
                   Browse Groups
                 </Link>
+                <Link href="/transactions" className="btn-secondary px-4 py-2 text-xs rounded-xl">
+                  Transactions
+                </Link>
                 <Link href="/profile" className="btn-ghost px-4 py-2 text-xs rounded-xl border border-surface-200 dark:border-slate-700">
                   My Profile
                 </Link>
@@ -196,6 +212,10 @@ export default function DashboardPage() {
             </div>
           </BentoCell>
         </BentoGrid>
+
+        <div className="animate-fade-in-up" style={{ animationDelay: '420ms', animationFillMode: 'both' }}>
+          <GamificationDashboard walletAddress={address || undefined} />
+        </div>
 
         {/* ── Groups section ── */}
         <div className="animate-fade-in-up" style={{ animationDelay: '480ms', animationFillMode: 'both' }}>

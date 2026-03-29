@@ -142,6 +142,10 @@ pub struct Group {
     /// Strategy used to determine payout order each cycle.
     /// Defaults to `Sequential` (join order) when created via `create_group`.
     pub payout_strategy: PayoutOrderingStrategy,
+
+    /// Access control type for the group.
+    /// Defaults to `Open` when created via `create_group`.
+    pub access_type: GroupAccessType,
 }
 
 /// Comprehensive snapshot of a group's current state.
@@ -212,9 +216,75 @@ pub struct GroupMetadata {
     pub rules: soroban_sdk::String,
 }
 
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DisputeType {
+    NonPayment = 0,        // Member not contributing
+    FraudulentClaim = 1,   // False insurance claim
+    RuleViolation = 2,     // Breaking group rules
+    PayoutDispute = 3,     // Disagreement on payout
+    Other = 4,
+}
+
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DisputeStatus {
+    Open = 0,
+    UnderReview = 1,
+    Voting = 2,
+    Resolved = 3,
+    Rejected = 4,
+}
+
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DisputeResolution {
+    NoAction = 0,
+    Warning = 1,
+    Penalty = 2,
+    Removal = 3,
+    Refund = 4,
+    GroupCancellation = 5,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Dispute {
+    pub id: u64,
+    pub group_id: u64,
+    pub dispute_type: DisputeType,
+    pub complainant: Address,
+    pub defendant: Address,
+    pub description: soroban_sdk::String,
+    pub evidence_hash: BytesN<32>, // Hash of off-chain evidence
+    pub status: DisputeStatus,
+    pub created_at: u64,
+    pub voting_deadline: u64,
+    pub votes_for_action: u32,
+    pub votes_against_action: u32,
+    pub proposed_resolution: DisputeResolution,
+    pub final_resolution: Option<DisputeResolution>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DisputeVote {
+    pub dispute_id: u64,
+    pub voter: Address,
+    pub supports_action: bool,
+    pub timestamp: u64,
+}
+
 pub const MAX_NAME_LENGTH: u32 = 50;
 pub const MAX_DESCRIPTION_LENGTH: u32 = 250;
 pub const MAX_RULES_LENGTH: u32 = 1000;
+pub const VOTING_PERIOD: u64 = 604_800;
+pub const DISPUTE_VOTING_PERIOD: u64 = 604_800; // 7 days for disputes
+pub const REFUND_APPROVAL_THRESHOLD: u32 = 51;
+pub const DISPUTE_APPROVAL_THRESHOLD: u32 = 66;
 
 /// Tracks a refund request initiated by a member.
 #[contracttype]
@@ -305,6 +375,8 @@ pub enum RefundReason {
     MemberVote = 1,
     /// Emergency refund by admin.
     EmergencyRefund = 2,
+    /// Dispute resolution refund.
+    DisputeRefund = 3,
 }
 
 /// Voting period duration in seconds (7 days).
@@ -444,7 +516,7 @@ pub struct ReminderRecord {
     pub triggered_at: u64,
     /// The contribution deadline the reminder relates to.
     pub deadline: u64,
-/// Group-level milestones that track progress through the savings cycle.
+}/// Group-level milestones that track progress through the savings cycle.
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]
@@ -502,4 +574,138 @@ pub struct MemberStats {
     pub late_contributions: u32,
     pub total_amount_contributed: i128,
     pub achievements: Vec<MemberAchievement>,
+}
+
+// ── Group access control ──────────────────────────────────────────────────
+
+/// Controls how new members can join a group.
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum GroupAccessType {
+    /// Anyone can join directly.
+    Open = 0,
+    /// Members must be invited by the creator.
+    InviteOnly = 1,
+    /// Members must request access and be approved by the creator.
+    ApprovalRequired = 2,
+}
+
+/// An invitation for a member to join an invite-only group.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GroupInvitation {
+    pub group_id: u64,
+    pub invitee: Address,
+    pub invited_by: Address,
+    pub created_at: u64,
+    pub expires_at: u64,
+    pub accepted: bool,
+}
+
+/// A request from a member to join an approval-required group.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct JoinRequest {
+    pub group_id: u64,
+    pub requester: Address,
+    pub created_at: u64,
+    pub approved: bool,
+}
+
+// ── Multi-token support ───────────────────────────────────────────────────
+
+/// Configuration for an accepted token within a multi-token group.
+///
+/// The `weight` field establishes relative value between tokens.  For example,
+/// if USDC has weight 100 and XLM has weight 10, one USDC unit is treated as
+/// equivalent to 10 XLM units when calculating contribution equivalence.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TokenConfig {
+    /// Address of the token contract (SAC).
+    pub address: Address,
+    /// Relative weight used for equivalence calculations.
+    /// Higher weight means each unit of this token satisfies more of the
+    /// base contribution requirement.  Must be > 0.
+    pub weight: u32,
+}
+
+/// Stored per group to track which tokens are accepted and their weights.
+///
+/// For single-token groups created via `create_group`, this record is **not**
+/// stored — those groups continue to use the `Group.token_address` field
+/// directly, preserving full backward compatibility.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MultiTokenConfig {
+    /// The group this configuration belongs to.
+    pub group_id: u64,
+    /// Ordered list of accepted tokens with their weights.
+    /// The first entry is considered the *primary* token and its weight is
+    /// the baseline for equivalence calculations.
+    pub accepted_tokens: Vec<TokenConfig>,
+}
+
+/// Records a member's token-specific contribution for a cycle.
+///
+/// This is stored alongside the normal contribution flag so existing
+/// contribution queries remain unaffected.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TokenContribution {
+    /// The contributing member's address.
+    pub member: Address,
+    /// The token used for this contribution.
+    pub token: Address,
+    /// The raw amount transferred (in the token's native units).
+    pub amount: i128,
+    /// The cycle this contribution belongs to.
+    pub cycle: u32,
+}
+
+/// Maximum number of distinct tokens a multi-token group can accept.
+pub const MAX_ACCEPTED_TOKENS: u32 = 10;
+
+// ── Group templates ───────────────────────────────────────────────────────
+
+/// Predefined group templates for common savings use cases.
+///
+/// Each variant maps to a [`TemplateConfig`] with sensible defaults that
+/// callers can override when creating a group via
+/// [`AjoContract::create_group_from_template`].
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum GroupTemplate {
+    /// 30-day cycles, moderate contribution amounts, up to 12 members.
+    MonthlySavings = 0,
+    /// 7-day cycles, smaller contribution amounts, up to 10 members.
+    WeeklySavings = 1,
+    /// 14-day cycles, higher contribution amounts, lower penalty rate.
+    EmergencyFund = 2,
+    /// 90-day cycles, larger contribution amounts, up to 20 members.
+    InvestmentClub = 3,
+    /// Fully customizable — no opinionated defaults beyond the minimums.
+    Custom = 4,
+}
+
+/// Pre-configured defaults and suggested ranges for a [`GroupTemplate`].
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TemplateConfig {
+    /// The template this config belongs to.
+    pub template_type: GroupTemplate,
+    /// Default cycle duration in seconds.
+    pub default_cycle_duration: u64,
+    /// Default grace period in seconds.
+    pub default_grace_period: u64,
+    /// Default penalty rate as a percentage (0–100).
+    pub default_penalty_rate: u32,
+    /// Suggested minimum contribution amount in stroops.
+    pub suggested_contribution_min: i128,
+    /// Suggested maximum contribution amount in stroops.
+    pub suggested_contribution_max: i128,
+    /// Suggested maximum number of members.
+    pub suggested_max_members: u32,
 }

@@ -1,6 +1,6 @@
 use soroban_sdk::{Address, Env, Vec};
 
-use crate::types::{Group, GroupMilestone, MemberAchievement, PayoutOrder, PayoutOrderingStrategy};
+use crate::types::{Group, GroupMilestone, GroupTemplate, MemberAchievement, PayoutOrder, PayoutOrderingStrategy, TemplateConfig};
 use crate::errors::AjoError;
 
 /// Returns `true` if `address` appears in the group's `members` list.
@@ -382,7 +382,7 @@ fn check_zero_penalties(env: &Env, group: &Group) -> bool {
 /// Checks which member achievements have been newly earned.
 pub fn check_member_achievements(
     env: &Env,
-    member: &Address,
+    _member: &Address,
     stats: &crate::types::MemberStats,
 ) -> Vec<MemberAchievement> {
     let mut achievements = Vec::new(env);
@@ -429,5 +429,145 @@ pub fn default_member_stats(env: &Env, member: &Address) -> crate::types::Member
         late_contributions: 0,
         total_amount_contributed: 0,
         achievements: Vec::new(env),
+    }
+}
+
+// ── Multi-token helpers ───────────────────────────────────────────────────
+
+/// Validates an accepted-token list for multi-token group creation.
+///
+/// Checks:
+/// 1. List is non-empty
+/// 2. List does not exceed [`MAX_ACCEPTED_TOKENS`]
+/// 3. Every weight is > 0
+/// 4. No duplicate token addresses
+pub fn validate_token_list(
+    _env: &Env,
+    tokens: &Vec<crate::types::TokenConfig>,
+) -> Result<(), AjoError> {
+    use crate::types::MAX_ACCEPTED_TOKENS;
+
+    if tokens.is_empty() {
+        return Err(AjoError::InvalidMultiTokenConfig);
+    }
+    if tokens.len() > MAX_ACCEPTED_TOKENS {
+        return Err(AjoError::InvalidMultiTokenConfig);
+    }
+
+    // Validate weights and check for duplicates with an O(n²) scan.
+    // Acceptable because MAX_ACCEPTED_TOKENS is small (10).
+    let len = tokens.len();
+    for i in 0..len {
+        let tc = tokens.get(i).unwrap();
+        if tc.weight == 0 {
+            return Err(AjoError::InvalidMultiTokenConfig);
+        }
+        for j in (i + 1)..len {
+            let other = tokens.get(j).unwrap();
+            if tc.address == other.address {
+                return Err(AjoError::InvalidMultiTokenConfig);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Locates a token in the multi-token config and returns its config plus the
+/// primary token's weight (needed for equivalence calculation).
+///
+/// # Returns
+/// `(matched_token_config, primary_weight)`
+///
+/// # Errors
+/// * `TokenNotAccepted` – the address is not in the accepted list
+pub fn find_token_config(
+    config: &crate::types::MultiTokenConfig,
+    token_address: &Address,
+) -> Result<(crate::types::TokenConfig, u32), AjoError> {
+    let primary_weight = config.accepted_tokens.get(0).unwrap().weight;
+
+    for i in 0..config.accepted_tokens.len() {
+        let tc = config.accepted_tokens.get(i).unwrap();
+        if tc.address == *token_address {
+            return Ok((tc, primary_weight));
+        }
+    }
+
+    Err(AjoError::TokenNotAccepted)
+}
+
+/// Calculates the equivalent contribution amount in a secondary token.
+///
+/// Formula: `base_amount × primary_weight / token_weight`
+///
+/// If the member contributes in the primary token (`token_weight ==
+/// primary_weight`) the result equals `base_amount` exactly.
+pub fn calculate_equivalent_amount(
+    base_amount: i128,
+    primary_weight: u32,
+    token_weight: u32,
+) -> i128 {
+    (base_amount * (primary_weight as i128)) / (token_weight as i128)
+}
+
+/// Returns `true` if `address` is either the complainant or defendant in a dispute.
+pub fn is_dispute_member(dispute: &crate::types::Dispute, address: &Address) -> bool {
+    dispute.complainant == *address || dispute.defendant == *address
+}
+
+// ── Group templates ───────────────────────────────────────────────────────
+
+/// Returns the pre-configured [`TemplateConfig`] for the given [`GroupTemplate`].
+///
+/// All duration values are in seconds; all amounts are in stroops
+/// (1 XLM = 10_000_000 stroops).
+pub fn get_template_config(template: GroupTemplate) -> TemplateConfig {
+    match template {
+        GroupTemplate::MonthlySavings => TemplateConfig {
+            template_type: GroupTemplate::MonthlySavings,
+            default_cycle_duration: 2_592_000,       // 30 days
+            default_grace_period: 86_400,             // 1 day
+            default_penalty_rate: 5,
+            suggested_contribution_min: 10_000_000,   // 1 XLM
+            suggested_contribution_max: 1_000_000_000, // 100 XLM
+            suggested_max_members: 12,
+        },
+        GroupTemplate::WeeklySavings => TemplateConfig {
+            template_type: GroupTemplate::WeeklySavings,
+            default_cycle_duration: 604_800,          // 7 days
+            default_grace_period: 43_200,             // 12 hours
+            default_penalty_rate: 10,
+            suggested_contribution_min: 1_000_000,    // 0.1 XLM
+            suggested_contribution_max: 100_000_000,  // 10 XLM
+            suggested_max_members: 10,
+        },
+        GroupTemplate::EmergencyFund => TemplateConfig {
+            template_type: GroupTemplate::EmergencyFund,
+            default_cycle_duration: 1_209_600,        // 14 days
+            default_grace_period: 172_800,            // 2 days
+            default_penalty_rate: 3,
+            suggested_contribution_min: 50_000_000,   // 5 XLM
+            suggested_contribution_max: 5_000_000_000, // 500 XLM
+            suggested_max_members: 8,
+        },
+        GroupTemplate::InvestmentClub => TemplateConfig {
+            template_type: GroupTemplate::InvestmentClub,
+            default_cycle_duration: 7_776_000,         // 90 days
+            default_grace_period: 604_800,             // 7 days
+            default_penalty_rate: 2,
+            suggested_contribution_min: 100_000_000,   // 10 XLM
+            suggested_contribution_max: 10_000_000_000, // 1000 XLM
+            suggested_max_members: 20,
+        },
+        GroupTemplate::Custom => TemplateConfig {
+            template_type: GroupTemplate::Custom,
+            default_cycle_duration: 2_592_000,
+            default_grace_period: 86_400,
+            default_penalty_rate: 5,
+            suggested_contribution_min: 1_000_000,
+            suggested_contribution_max: 10_000_000_000,
+            suggested_max_members: 50,
+        },
     }
 }

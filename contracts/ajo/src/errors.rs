@@ -146,6 +146,36 @@ pub enum AjoError {
     /// No eligible members remain for payout selection (all have been paid).
     NoEligibleMembers = 47,
 
+    // ── Multi-token errors ────────────────────────────────────────────────
+
+    /// The token is not in the group's accepted token list.
+    TokenNotAccepted = 48,
+
+    /// Invalid multi-token configuration (empty list, duplicates, zero weight,
+    /// or too many tokens).
+    InvalidMultiTokenConfig = 49,
+
+    /// Group does not have multi-token configuration.
+    NotMultiTokenGroup = 50,
+
     /// No notification preferences found for this member.
-    PreferencesNotFound = 48,
+    PreferencesNotFound = 51,
+
+    // ── Dispute errors ────────────────────────────────────────────────────
+
+    /// The specified dispute was not found in storage.
+    DisputeNotFound = 52,
+
+    /// The dispute has already been resolved.
+    DisputeAlreadyResolved = 53,
+
+    /// This address has already voted on this dispute.
+    AlreadyVotedOnDispute = 54,
+
+    /// The voting period for this dispute has ended.
+    VotingPeriodEndedDispute = 55,
+
+    /// The caller is not a member of the dispute's group.
+    NotDisputeMember = 56,
 }
+
