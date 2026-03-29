@@ -3,6 +3,9 @@ import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
 import { createServer } from 'http'
+import * as Sentry from '@sentry/node'
+import { initSentry } from './config/sentry.config'
+import { initDatadog } from './config/datadog'
 import { errorHandler } from './middleware/errorHandler'
 import { requestLogger } from './middleware/requestLogger'
 import { logger } from './utils/logger'
@@ -15,11 +18,15 @@ import { authRouter } from './routes/auth'
 import { jobsRouter } from './routes/jobs'
 import { setupSwagger } from './swagger'
 import { apiLimiter, strictLimiter } from './middleware/rateLimiter'
+import { compressionMiddleware } from './middleware/compression'
+import { metricsMiddleware } from './middleware/metrics'
 // Import queue and job modules
 import { initializeQueues } from './queues'
 import { startJobProcessors } from './jobs'
 // Import chat service
 import { chatService } from './services/chatService'
+import { stopScheduler } from './cron/scheduler'
+import { stopWorkers } from './jobs/jobWorkers'
 
 dotenv.config()
 
@@ -48,6 +55,7 @@ app.use(
     credentials: true,
   })
 )
+app.use(compressionMiddleware)
 
 app.use(requestLogger)
 app.use(metricsMiddleware)
